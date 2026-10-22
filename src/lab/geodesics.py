@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+
 from scipy.integrate import solve_ivp
 
 FloatArray = NDArray[np.float64]
@@ -9,16 +10,19 @@ FloatArray = NDArray[np.float64]
 
 @dataclass(frozen=True)
 class RayTrajectory:
-    """A light-ray trajectory in dimensionless Schwarzschild units."""
+    """A light ray of beam :3 """
 
     phi: FloatArray
-    u: FloatArray
+    
+    u: FloatArray # convineit number 
 
     @property
     def radius(self) -> FloatArray:
-        """Return radius in units of the Schwarzschild radius."""
+        """converts radius into ---> Schwarzschild radius"""
         radius = np.full_like(self.u, np.inf)
+        
         np.divide(1.0, self.u, out=radius, where=self.u > 0)
+        
         return radius
 
 
@@ -26,7 +30,9 @@ def _rhs(
     phi: float,
     state: FloatArray,
 ) -> tuple[float, float]:
-    """First-order form of the Schwarzschild photon equation."""
+    
+    """First-order Schwarzschild photon equation (diff eq !)"""
+    
     del phi
 
     u, du_dphi = state
@@ -42,13 +48,16 @@ def simulate_ray(
     rtol: float = 1e-9,
     atol: float = 1e-11,
 ) -> RayTrajectory:
-    """Integrate a scattering ray from its point of closest approach."""
+    """Integrate a scattering ray from its point of closest approach """
+    
     if not np.isfinite(closest_approach) or closest_approach <= 1.5:
         raise ValueError("closest_approach must be finite and > 1.5.")
 
+    
     if not np.isfinite(max_angle) or max_angle <= 0:
         raise ValueError("max_angle must be finite and positive.")
 
+    
     if not (0 < rtol < 1 and 0 < atol < 1):
         raise ValueError("rtol and atol must be between 0 and 1.")
 
@@ -57,7 +66,7 @@ def simulate_ray(
     solution = solve_ivp(
         _rhs,
         (0.0, max_angle),
-        y0=(u0, 0.0),
+        y0=(u0, 0.0),                 # IVP ???
         method="DOP853",
         rtol=rtol,
         atol=atol,
@@ -67,7 +76,7 @@ def simulate_ray(
     if not solution.success:
         raise RuntimeError(solution.message)
 
-    # The equation is symmetric around the turning point at phi = 0.
+    # if phi=0 sym eq
     phi_out = solution.t
     u_out = solution.y[0]
 
