@@ -85,9 +85,12 @@ def simulate_ray(
         events=escape_event,
         max_step=0.02,
     )
-    
+
     if not solution.success:
         raise RuntimeError(solution.message)
+    print("Escape angle:", solution.t[-1])
+    print("Final u:", solution.y[0, -1])
+    print("Event detected:", len(solution.t_events[0]) > 0)
 
     # if phi=0 sym eq
     phi_out = solution.t

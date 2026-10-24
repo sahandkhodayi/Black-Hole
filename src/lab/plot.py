@@ -14,7 +14,7 @@ def plot_trajectory(
     radius = trajectory.radius
     phi = trajectory.phi
 
-    finite = np.isfinite(radius)
+    finite = np.isfinite(radius) & (radius <= 50.0)
     x = radius[finite] * np.cos(phi[finite])
     y = radius[finite] * np.sin(phi[finite])
 
@@ -39,6 +39,8 @@ def plot_trajectory(
     )
     ax.grid(True, alpha=0.25)
     ax.legend()
+    ax.set_xlim(-15, 15)
+    ax.set_ylim(-15, 15)
 
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
