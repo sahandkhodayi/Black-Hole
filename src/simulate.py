@@ -3,7 +3,7 @@ from lab.plot import plot_trajectory
 
 
 def main() -> None:
-    ray = simulate_ray(closest_approach=10.0)
+    ray = simulate_ray(closest_approach=5.0)
 
     plot_trajectory(ray, "outputs/first_ray.png")
     print("u min:", ray.u.min())
