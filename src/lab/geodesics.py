@@ -40,6 +40,18 @@ def _rhs(
 
     return du_dphi, d2u_dphi2
 
+def escape_event(phi, state):
+    
+    u , du_dphi=state
+
+    return u
+
+escape_event.terminal = True
+escape_event.direction = -1
+
+
+
+
 
 def simulate_ray(
     closest_approach: float = 10.0,
@@ -66,13 +78,14 @@ def simulate_ray(
     solution = solve_ivp(
         _rhs,
         (0.0, max_angle),
-        y0=(u0, 0.0),                 # IVP ???
+        y0=(u0, 0.0),  # Initial conditions
         method="DOP853",
         rtol=rtol,
         atol=atol,
+        events=escape_event,
         max_step=0.02,
     )
-
+    
     if not solution.success:
         raise RuntimeError(solution.message)
 
