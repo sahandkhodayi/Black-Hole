@@ -1,0 +1,11 @@
+#outputs
+./outputs
+
+# docs for now 
+
+./DOCS
+
+
+./src/lab/__pycache__
+
+__pycache__
