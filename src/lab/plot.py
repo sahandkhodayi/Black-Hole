@@ -1,49 +1,61 @@
-from pathlib import Path
-
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
-from lab.geodesics import RayTrajectory
+from matplotlib.patches import Circle
+
+from lab.geodesics import simulate_ray
 
 
-def plot_trajectory(
-    trajectory: RayTrajectory,
-    output_path: str | Path,
-) -> None:
-    """Plot the trajectory and Schwarzschild event horizon."""
-    radius = trajectory.radius
-    phi = trajectory.phi
+def plot_black_hole(closest_approaches=(3.0, 5.0, 10.0)):
+    fig, ax = plt.subplots(figsize=(9, 9))
 
-    finite = np.isfinite(radius) & (radius <= 50.0)
-    x = radius[finite] * np.cos(phi[finite])
-    y = radius[finite] * np.sin(phi[finite])
-
-    fig, ax = plt.subplots(figsize=(8, 8))
-
-    horizon = plt.Circle(
+    # Black hole: event horizon, radius = 1
+    horizon = Circle(
         (0, 0),
-        1.0,
+        radius=1.0,
         color="black",
-        label="Event horizon: r = r_s",
+        zorder=5,
+        label="Event horizon",
     )
     ax.add_patch(horizon)
 
-    ax.plot(x, y, label="Photon trajectory")
-    ax.scatter([0], [0], color="black", s=12)
-
-    ax.set(
-        title="Schwarzschild black hole: photon trajectory",
-        xlabel="x / r_s",
-        ylabel="y / r_s",
-        aspect="equal",
+    # Photon sphere: radius = 1.5
+    photon_sphere = Circle(
+        (0, 0),
+        radius=1.5,
+        fill=False,
+        linestyle="--",
+        linewidth=1.5,
+        color="gray",
+        label="Photon sphere",
     )
-    ax.grid(True, alpha=0.25)
-    ax.legend()
+    ax.add_patch(photon_sphere)
+
+    for distance in closest_approaches:
+        trajectory = simulate_ray(closest_approach=distance)
+
+        r = trajectory.radius
+        phi = trajectory.phi
+
+        # Ignore infinite radii near escape and keep the view readable.
+        visible = np.isfinite(r) & (r <= 30)
+
+        x = r[visible] * np.cos(phi[visible])
+        y = r[visible] * np.sin(phi[visible])
+
+        ax.plot(x, y, linewidth=1.8, label=f"Closest approach: {distance} rs")
+
+    ax.set_aspect("equal")
     ax.set_xlim(-15, 15)
     ax.set_ylim(-15, 15)
+    ax.set_xlabel("x / rs")
+    ax.set_ylabel("y / rs")
+    ax.set_title("Light Trajectories Around a Schwarzschild Black Hole")
+    ax.grid(alpha=0.2)
+    ax.legend()
+    plt.tight_layout()
+    plt.show()
 
-    output = Path(output_path)
-    output.parent.mkdir(parents=True, exist_ok=True)
 
-    fig.savefig(output, dpi=160, bbox_inches="tight")
-    plt.close(fig)
+if __name__ == "__main__":
+    plot_black_hole()
