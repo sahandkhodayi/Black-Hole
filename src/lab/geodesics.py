@@ -88,9 +88,10 @@ def simulate_ray(
 
     if not solution.success:
         raise RuntimeError(solution.message)
-    print("Escape angle:", solution.t[-1])
+    print("Escape angle:", float(((2*solution.t[-1])-np.pi)*(57.2958)))
     print("Final u:", solution.y[0, -1])
     print("Event detected:", len(solution.t_events[0]) > 0)
+
 
     # if phi=0 sym eq
     phi_out = solution.t
@@ -100,3 +101,15 @@ def simulate_ray(
     u = np.concatenate((u_out[:0:-1], u_out))
 
     return RayTrajectory(phi=phi, u=u)
+
+
+closest_approaches = [3.0, 5.0, 10.0]
+for distance in closest_approaches:
+    trajectory = simulate_ray(closest_approach=distance)
+
+    print(
+        f"Closest approach: {distance} rs | "
+        f"Number of points: {len(trajectory.phi)}"
+
+    )
+    print("----------------------------------------")
