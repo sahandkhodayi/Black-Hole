@@ -1,5 +1,5 @@
 from lab.geodesics import simulate_ray
-from lab.plot import plot_black_hole
+from lab.plot import plot_rays
 
 
 def main() -> None:
@@ -15,7 +15,7 @@ def main() -> None:
     print(f"Trajectory points: {len(ray.phi)}")
     print(f"Closest radius: {ray.radius.min():.6f} r_s")
     print("Plot saved to outputs/first_ray.png")
-    plot_black_hole(closest_approaches=(3.0, 5.0, 10.0))
+    plot_rays(closest_approaches=(3.0, 5.0, 10.0))
 
 
 if __name__ == "__main__":

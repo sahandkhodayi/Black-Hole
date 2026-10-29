@@ -13,8 +13,11 @@ class RayTrajectory:
     """A light ray of beam :3 """
 
     phi: FloatArray
-    
+     
     u: FloatArray # convineit number 
+    escaped: bool = False   
+    escape_angle: float | None = None
+    nfev: int = 0
 
     @property
     def radius(self) -> FloatArray:
@@ -111,7 +114,7 @@ def simulate_ray(
     phi = np.concatenate((-phi_out[:0:-1], phi_out))
     u = np.concatenate((u_out[:0:-1], u_out))
 
-    return RayTrajectory(phi=phi, u=u)
+    return RayTrajectory(phi=phi, u=u,escaped=True)
 
 
 closest_approaches = [3.0, 5.0, 10.0]
