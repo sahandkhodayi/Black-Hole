@@ -1082,3 +1082,349 @@ A credible report contains the research question, physical assumptions and units
 - [ ] M9: clean setup, tests, report, reproducible release.
 
 **Scientific honesty:** the code in this guide is an integrated starting implementation, not a claim that all experiments have been executed end-to-end. Run each milestone, resolve any errors, and validate numerical behavior before treating a plot or metric as evidence.
+
+
+# CODE SUPPLEMENT — Complete implementation for Milestones 7–9
+
+The earlier chapters build the numerical solver, dataset, baseline, scalar MLP, and first PINN. This supplement turns the final milestones into executable engineering tasks instead of leaving them as prose-only goals.
+
+# MILESTONE 7 — Shared splits and fair model evaluation
+
+## File: scripts/make_splits.py
+
+This script creates one frozen split manifest. Every method must use these same case IDs. The manifest is generated from the labelled, escaped cases only.
+
+~~~python
+from pathlib import Path
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+
+def main():
+    frame = pd.read_csv("data/deflection.csv")
+    frame = frame.loc[frame["escaped"]].dropna(subset=["deflection_rad"])
+    ids = frame["case_id"].to_numpy()
+
+    train_val_ids, test_ids = train_test_split(
+        ids, test_size=0.2, random_state=42
+    )
+    train_ids, val_ids = train_test_split(
+        train_val_ids, test_size=0.25, random_state=42
+    )
+
+    manifest = pd.DataFrame({
+        "case_id": list(train_ids) + list(val_ids) + list(test_ids),
+        "split": (
+            ["train"] * len(train_ids)
+            + ["validation"] * len(val_ids)
+            + ["test"] * len(test_ids)
+        ),
+    })
+    Path("data").mkdir(exist_ok=True)
+    manifest.to_csv("data/split_manifest.csv", index=False)
+    print(manifest["split"].value_counts().to_dict())
+    print("Saved data/split_manifest.csv")
+
+
+if __name__ == "__main__":
+    main()
+~~~
+
+Line by line: first filter to rows with a real escape label; split only the stable case IDs; create train, validation, and test groups with fixed seeds; save IDs rather than only saving a random seed. Persisting IDs means the exact evaluation cases survive changes to library versions.
+
+Run dataset generation first, then python -m scripts.make_splits.
+
+## File: scripts/compare_scalar_models.py
+
+This evaluator compares the weak-field baseline and the saved MLP on the exact test IDs. It refuses to continue if the model prediction file was generated on different cases. To make this strict comparison, train_nn.py must use the shared manifest; the short replacement block below shows the exact split code to use in that file.
+
+~~~python
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+from lab.baseline import weak_field_prediction
+
+
+def metric_row(name, truth, prediction):
+    error = np.asarray(prediction) - np.asarray(truth)
+    return {
+        "method": name,
+        "mae_rad": float(mean_absolute_error(truth, prediction)),
+        "rmse_rad": float(np.sqrt(mean_squared_error(truth, prediction))),
+        "worst_abs_error_rad": float(np.max(np.abs(error))),
+        "n_test": int(len(truth)),
+    }
+
+
+def main():
+    frame = pd.read_csv("data/deflection.csv")
+    manifest = pd.read_csv("data/split_manifest.csv")
+    test_ids = manifest.loc[manifest["split"] == "test", "case_id"]
+    test = frame.loc[frame["case_id"].isin(test_ids) & frame["escaped"]].copy()
+    test = test.dropna(subset=["deflection_rad"]).sort_values("case_id")
+
+    baseline = weak_field_prediction(test["r_min_rs"].to_numpy())
+    rows = [metric_row(
+        "weak_field_baseline", test["deflection_rad"].to_numpy(), baseline
+    )]
+
+    nn_path = Path("outputs/nn_test_predictions.csv")
+    if nn_path.exists():
+        nn_predictions = pd.read_csv(nn_path)
+        # case_id is required to verify identity, not merely equal row count.
+        if "case_id" not in nn_predictions.columns:
+            raise ValueError(
+                "NN predictions must include case_id. Update train_nn.py to save it."
+            )
+        nn_predictions = nn_predictions.sort_values("case_id")
+        expected = test["case_id"].to_numpy()
+        actual = nn_predictions["case_id"].to_numpy()
+        if not np.array_equal(expected, actual):
+            raise ValueError("NN predictions do not use the shared test split.")
+        rows.append(metric_row(
+            "data_only_mlp",
+            nn_predictions["target_rad"].to_numpy(),
+            nn_predictions["prediction_rad"].to_numpy(),
+        ))
+
+    result = pd.DataFrame(rows)
+    Path("outputs").mkdir(exist_ok=True)
+    result.to_csv("outputs/scalar_model_comparison.csv", index=False)
+    result.to_json("outputs/scalar_model_comparison.json", orient="records", indent=2)
+    print(result.to_string(index=False))
+
+    plt.bar(result["method"], result["mae_rad"])
+    plt.ylabel("MAE (radians)")
+    plt.xticks(rotation=15, ha="right")
+    plt.tight_layout()
+    plt.savefig("outputs/scalar_model_comparison.png", dpi=180)
+    plt.close()
+
+
+if __name__ == "__main__":
+    main()
+~~~
+
+### Required small change to train_nn.py
+
+Replace the independent split block in train_nn.py with this block:
+
+~~~python
+manifest = pd.read_csv("data/split_manifest.csv")
+train_ids = manifest.loc[manifest["split"] == "train", "case_id"]
+val_ids = manifest.loc[manifest["split"] == "validation", "case_id"]
+test_ids = manifest.loc[manifest["split"] == "test", "case_id"]
+
+train = frame.loc[frame["case_id"].isin(train_ids)].copy()
+val = frame.loc[frame["case_id"].isin(val_ids)].copy()
+test = frame.loc[frame["case_id"].isin(test_ids)].copy()
+~~~
+
+Then include case IDs in the prediction CSV. Replace the DataFrame used to save test predictions with:
+
+~~~python
+pd.DataFrame({
+    "case_id": test["case_id"].to_numpy(),
+    "r_min_rs": x_test.ravel(),
+    "target_rad": truth,
+    "prediction_rad": pred,
+    "residual_rad": pred - truth,
+}).to_csv("outputs/nn_test_predictions.csv", index=False)
+~~~
+
+Explanation: both methods now receive identical test cases. The evaluator checks case identity rather than assuming equal row counts mean equal cases. Without that identity check, two metrics may look comparable while actually being measured on different examples.
+
+Run in this order:
+
+~~~bash
+python -m scripts.make_splits
+python -m lab.train_nn
+python -m scripts.compare_scalar_models
+~~~
+
+The PINN is a trajectory model, not the same scalar regression interface. Its evaluation must compare predicted u(phi) to numerical u(phi) for held-out closest-approach values, and report trajectory error separately from scalar deflection error. Do not place unlike metrics in a single ranking without explaining their meanings.
+
+# MILESTONE 8 — Adaptive-sampling experiment with a random control
+
+This extension asks whether selecting additional cases near the model's largest observed errors improves accuracy more than adding the same number of random cases. The first implementation uses the current model's absolute residual on a labelled candidate pool as a simple acquisition score. Because the candidate pool has labels, this is an **offline active-learning simulation**, not a claim that the model knows true errors for unlabelled points in a real deployment.
+
+## File: scripts/adaptive_sampling_experiment.py
+
+~~~python
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from sklearn.neural_network import MLPRegressor
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error
+
+
+def main():
+    frame = pd.read_csv("data/deflection.csv")
+    frame = frame.loc[frame["escaped"]].dropna(subset=["deflection_rad"]).copy()
+    frame = frame.sort_values("case_id").reset_index(drop=True)
+
+    rng = np.random.default_rng(42)
+    permutation = rng.permutation(len(frame))
+    initial_idx = permutation[: max(10, int(0.5 * len(frame)))]
+    pool_idx = permutation[max(10, int(0.5 * len(frame))):]
+
+    initial = frame.iloc[initial_idx].copy()
+    pool = frame.iloc[pool_idx].copy()
+    if len(pool) < 2:
+        raise ValueError("Need a larger dataset for the sampling experiment.")
+
+    def fit_and_predict(train, test):
+        model = make_pipeline(
+            StandardScaler(),
+            MLPRegressor(
+                hidden_layer_sizes=(64, 64),
+                activation="tanh",
+                max_iter=3000,
+                early_stopping=True,
+                random_state=42,
+            ),
+        )
+        model.fit(train[["r_min_rs"]], train["deflection_rad"])
+        return model.predict(test[["r_min_rs"]])
+
+    # Hold out a candidate test set before choosing additional training points.
+    pool, test = pool.iloc[:-1].copy(), pool.iloc[-1:].copy()
+    budget = min(10, max(1, len(pool) // 4))
+    first_prediction = fit_and_predict(initial, pool)
+    absolute_error = np.abs(first_prediction - pool["deflection_rad"].to_numpy())
+    adaptive_positions = np.argsort(absolute_error)[-budget:]
+    adaptive = pool.iloc[adaptive_positions]
+    remaining = pool.drop(index=adaptive.index)
+    random = remaining.sample(
+        n=min(budget, len(remaining)), random_state=42
+    )
+
+    adaptive_train = pd.concat([initial, adaptive], ignore_index=True)
+    random_train = pd.concat([initial, random], ignore_index=True)
+    adaptive_test_prediction = fit_and_predict(adaptive_train, test)
+    random_test_prediction = fit_and_predict(random_train, test)
+    truth = test["deflection_rad"].to_numpy()
+
+    result = pd.DataFrame([
+        {
+            "strategy": "adaptive_using_candidate_labels",
+            "added_cases": len(adaptive),
+            "test_mae_rad": mean_absolute_error(truth, adaptive_test_prediction),
+        },
+        {
+            "strategy": "random_control",
+            "added_cases": len(random),
+            "test_mae_rad": mean_absolute_error(truth, random_test_prediction),
+        },
+    ])
+    Path("outputs").mkdir(exist_ok=True)
+    result.to_csv("outputs/adaptive_sampling.csv", index=False)
+    print(result.to_string(index=False))
+    print(
+        "Caution: this tiny held-out set is illustrative. Repeat with multiple "
+        "seeds and a larger independent test set before drawing conclusions."
+    )
+
+
+if __name__ == "__main__":
+    main()
+~~~
+
+### What the experiment teaches
+
+- The initial training subset, candidate pool, and final test case are separated.
+- Adaptive selection uses the largest candidate-pool residuals, while the control adds a random sample of the same budget.
+- The final test point is not used to select new training cases.
+- This first script uses candidate labels to imitate a costly labelling process. It is useful as a controlled demonstration, but not a realistic unlabeled acquisition strategy.
+- A single test point is far too small for a research conclusion. Extend this to a fixed test set, multiple random seeds, confidence intervals, and a predeclared selection policy before reporting results.
+
+Run python -m scripts.adaptive_sampling_experiment.
+
+# MILESTONE 9 — Clean-environment verification and release
+
+## File: .github/workflows/tests.yml
+
+~~~yaml
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+      - name: Run tests
+        run: python -m pytest -q
+~~~
+
+This workflow checks out the repository, sets a fixed Python version, installs declared dependencies, and runs the test suite on pushes and pull requests. CI verifies software behavior on that environment; it does not validate the scientific model by itself.
+
+## README quick-start section
+
+Add a quick-start section to README.md and keep it aligned with the real file names:
+
+~~~markdown
+# Black Hole Lab
+
+A scientific-computing project for numerical light bending around a Schwarzschild black hole, followed by baseline regression, neural-network experiments, and a Physics-Informed Neural Network.
+
+## Setup
+
+Create and activate a Python virtual environment, then run:
+
+    python -m pip install -e ".[dev]"
+
+## Run the simulator
+
+    python -m simulate
+
+## Tests
+
+    python -m pytest -q
+
+## Generate the dataset
+
+    python -m scripts.generate_dataset --count 180 --seed 42
+
+## Train the scalar model
+
+    python -m scripts.make_splits
+    python -m lab.train_nn
+    python -m scripts.compare_scalar_models
+
+## PINN experiment
+
+    python -m lab.pinn
+
+All lengths are expressed in Schwarzschild-radius units. Deflection angles are in radians unless a field explicitly says degrees. Unresolved integrations are not treated as valid deflection labels.
+~~~
+
+## Release checklist
+
+1. Start from a clean clone or disposable environment.
+2. Install only from pyproject.toml.
+3. Run tests and all documented commands.
+4. Confirm output paths and figure labels.
+5. Check git status so datasets, checkpoints, caches, and virtual environments are not committed accidentally.
+6. Record the commit SHA, dependency versions, random seeds, and generated metrics.
+7. Tag a version only after the README and guide match the code.
+
+A green CI run is necessary but not sufficient: scientific validity still depends on convergence, physical comparisons, controlled test sets, and honest reporting of limitations.
