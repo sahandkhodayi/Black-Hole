@@ -25,6 +25,17 @@ class RayTrajectory:
         
         return radius
 
+    @property
+    def deflection_radian(self) ->float | None: # convering phi or angle to deflection radian
+        if not self.escaped or self.escape_angle is None:
+            return None
+        return 2.0 * self.escape_angle - np.pi
+    
+    @property
+    def deflection_angle(self)-> float | None:  #radian --> theta (degree)
+        angle=self.deflection_radian
+        return None if angle is None else float(np.degrees(angle))
+    
 
 def _rhs(
     phi: float,
@@ -40,14 +51,14 @@ def _rhs(
 
     return du_dphi, d2u_dphi2
 
-def escape_event(phi, state):
+def _escape_event(phi, state):
     
     u , du_dphi=state
 
     return u
 
-escape_event.terminal = True
-escape_event.direction = -1
+_escape_event.terminal = True
+_escape_event.direction = -1
 
 
 
@@ -82,7 +93,7 @@ def simulate_ray(
         method="DOP853",
         rtol=rtol,
         atol=atol,
-        events=escape_event,
+        events=_escape_event,
         max_step=0.02,
     )
 
