@@ -109,29 +109,201 @@ We will inspect the current repository before each code change. The code for a f
 ## Chapter 1.1 — Separate the library from experiments
 
 ### Goal
-Importing the geodesics module should define reusable code without automatically running simulations or printing output.
 
-### Why
-Tests, scripts, and the future dataset generator must be able to import the simulator safely. Experiment loops belong in an executable script, not at module scope.
+Make \`src/lab/geodesics.py\` a reusable library. Importing it must not launch three simulations or print anything. The experiment loop belongs in \`src/simulate.py\`.
 
-### Files
-- Modify src/lab/geodesics.py.
-- Clean up or add src/simulate.py as the experiment entry point.
+We are changing real code here—not placeholders. The complete contents of both changed files are below.
 
-### Full-code deliverable
-We will refactor the actual files into reusable functions in geodesics.py and a main() function in simulate.py, guarded by the standard Python main check. The complete replacement contents of each changed file will be shown when we implement this chapter.
+### File 1: \`src/lab/geodesics.py\`
 
-### Explanation
-We will cover library module vs executable script, import-time side effects, the main guard, and separation of computation from presentation.
+Replace the entire file with:
 
-### Verification
-Run the simulation script and confirm it still produces the expected experiment. Then import the module and confirm that no experiment is run and no output is printed.
+\`\`\`python
+from dataclasses import dataclass
 
-### Done when
-The same simulation can be called from a script, a test, or a future dataset generator without side effects.
+import numpy as np
+from numpy.typing import NDArray
+from scipy.integrate import solve_ivp
+
+FloatArray = NDArray[np.float64]
+
+
+@dataclass(frozen=True)
+class RayTrajectory:
+    """Numerical samples describing a light ray."""
+
+    phi: FloatArray
+    u: FloatArray
+
+    @property
+    def radius(self) -> FloatArray:
+        """Return radius in units of the Schwarzschild radius."""
+        radius = np.full_like(self.u, np.inf)
+        np.divide(1.0, self.u, out=radius, where=self.u > 0)
+        return radius
+
+
+def _rhs(
+    phi: float,
+    state: FloatArray,
+) -> tuple[float, float]:
+    """First-order system equivalent to u'' = 1.5*u**2 - u."""
+    del phi
+
+    u, du_dphi = state
+    d2u_dphi2 = 1.5 * u**2 - u
+
+    return du_dphi, d2u_dphi2
+
+
+def _escape_event(phi: float, state: FloatArray) -> float:
+    """Locate the outgoing point where inverse radius reaches zero."""
+    del phi
+    u, _du_dphi = state
+    return float(u)
+
+
+_escape_event.terminal = True
+_escape_event.direction = -1
+
+
+def simulate_ray(
+    closest_approach: float = 10.0,
+    *,
+    max_angle: float = 8.0,
+    rtol: float = 1e-9,
+    atol: float = 1e-11,
+) -> RayTrajectory:
+    """Integrate a scattering ray from its point of closest approach."""
+    if not np.isfinite(closest_approach) or closest_approach <= 1.5:
+        raise ValueError("closest_approach must be finite and > 1.5.")
+
+    if not np.isfinite(max_angle) or max_angle <= 0:
+        raise ValueError("max_angle must be finite and positive.")
+
+    if not (0 < rtol < 1 and 0 < atol < 1):
+        raise ValueError("rtol and atol must be between 0 and 1.")
+
+    u0 = 1.0 / closest_approach
+
+    solution = solve_ivp(
+        _rhs,
+        (0.0, max_angle),
+        y0=(u0, 0.0),
+        method="DOP853",
+        rtol=rtol,
+        atol=atol,
+        events=_escape_event,
+        max_step=0.02,
+    )
+
+    if not solution.success:
+        raise RuntimeError(solution.message)
+
+    phi_out = solution.t
+    u_out = solution.y[0]
+
+    # Reflect the outgoing half to create a symmetric full trajectory.
+    phi = np.concatenate((-phi_out[:0:-1], phi_out))
+    u = np.concatenate((u_out[:0:-1], u_out))
+
+    return RayTrajectory(phi=phi, u=u)
+\`\`\`
+
+### File 2: \`src/simulate.py\`
+
+Replace the entire file with:
+
+\`\`\`python
+from lab.geodesics import simulate_ray
+from lab.plot import plot_black_hole
+
+
+def main() -> None:
+    closest_approaches = (3.0, 5.0, 10.0)
+
+    for distance in closest_approaches:
+        ray = simulate_ray(closest_approach=distance)
+
+        print(f"Closest approach: {distance} r_s")
+        print(f"Number of trajectory points: {len(ray.phi)}")
+        print(f"Minimum sampled radius: {ray.radius.min():.6f} r_s")
+        print("-" * 40)
+
+    plot_black_hole(closest_approaches=closest_approaches)
+
+
+if __name__ == "__main__":
+    main()
+\`\`\`
+
+### Line-by-line explanation: \`geodesics.py\`
+
+- \`from dataclasses import dataclass\`: provides a compact way to define a result object.
+- \`import numpy as np\`: supplies arrays and numerical operations.
+- \`NDArray\`: annotates NumPy array types. \`FloatArray\` is an alias for arrays of 64-bit floats; it does not convert data at runtime.
+- \`solve_ivp\`: SciPy's initial-value ODE solver.
+- \`@dataclass(frozen=True)\`: generates the result object's constructor and prevents reassignment of its fields. It does not make the NumPy array contents themselves immutable.
+- \`phi\` stores angular coordinates; \`u\` stores inverse radius in the project's normalized units.
+- \`radius\`: starts with infinity everywhere, then calculates \(r/r_s=1/u\) only where \(u>0\). This avoids dividing by zero or interpreting nonpositive inverse radius as a physical finite radius.
+- \`_rhs\`: converts the second-order equation \(u''=1.5u^2-u\) into two first-order equations. The state is \((u,u')\), so the derivative of the first state component is \(u'\), and the derivative of the second is \(1.5u^2-u\).
+- \`del phi\`: the differential equation does not explicitly depend on \(\phi\); deleting the local name also makes that choice explicit.
+- \`_escape_event\`: returns \(u\). The solver can locate where this event function crosses zero.
+- \`terminal = True\`: stop integration after finding the event.
+- \`direction = -1\`: detect a crossing from positive to negative values, corresponding to the outgoing branch in this setup.
+- The input checks reject invalid closest-approach values, angular limits, and tolerances before calling the solver.
+- \`u0 = 1.0 / closest_approach\`: converts the starting radius to inverse radius. At closest approach, the radial derivative with respect to angle is zero, so the initial state is \`(u0, 0.0)\`.
+- \`solve_ivp(...)\`: integrates from angle zero to \`max_angle\` with DOP853. \`rtol\` and \`atol\` control estimated local error; \`max_step\` caps the angular step size.
+- \`solution.success\`: checks whether SciPy reports successful integration. This does **not** by itself tell us whether the escape event occurred; explicit status metadata will be added in Chapter 1.2.
+- \`solution.t\` contains sampled angles; \`solution.y[0]\` contains the corresponding \(u\) values.
+- \`phi_out[:0:-1]\`: takes the outgoing samples in reverse order but excludes the first sample at \(\phi=0\). Negating them reflects the angular coordinates around zero.
+- The same reflection is applied to \`u\), and \`np.concatenate\` joins both halves without duplicating the center point.
+- The final line returns data. It does not print, plot, or start another experiment.
+
+### Line-by-line explanation: \`simulate.py\`
+
+- The imports make the reusable solver and plotting function available to this script.
+- \`main()\` is the experiment entry point. Keeping it as a function means importing this script does not immediately run the experiment.
+- \`closest_approaches\` lists the three cases being compared.
+- The \`for\` loop calls the solver once per requested distance.
+- Each \`print\` describes the case and its sampled trajectory. The minimum sampled radius is a numerical diagnostic, not a proof that every physical interpretation is valid.
+- \`plot_black_hole(...)\` delegates visualization to the existing plotting module.
+- \`if __name__ == "__main__":\` calls \`main()\` only when this file is executed as a script, for example with \`python -m simulate\`. It does not run when the module is imported.
+
+### Run and verify
+
+From the repository root, using the same Python environment in which NumPy, SciPy, and Matplotlib are installed:
+
+\`\`\`bash
+python -m simulate
+\`\`\`
+
+Then check that importing the solver produces no output:
+
+\`\`\`bash
+python -c "import lab.geodesics; print('Import completed without running experiments.')"
+\`\`\`
+
+Expected behavior: the second command prints only the sentence explicitly written in that command. It must not print escape-angle diagnostics or launch the three-ray experiment.
+
+### Why we made this change
+
+Before this refactor, the loop at the bottom of \`geodesics.py\` ran every time the module was imported. That is an import-time side effect: a test or dataset generator could unexpectedly run simulations simply by importing \`simulate_ray\`. The solver also printed diagnostics internally, mixing calculation with presentation. Now the solver returns trajectory data, while the executable script owns the experiment loop and console output.
+
+### Important limitation at this stage
+
+The returned object still does not explicitly record whether the escape event occurred. If integration reaches \`max_angle\` without escaping, the function currently returns the samples anyway. We will address that honestly in Chapter 1.2 rather than pretending this chapter solves every simulator limitation.
+
+### Definition of done
+
+- [ ] Running \`python -m simulate\` still runs the experiment and opens the plot.
+- [ ] Importing \`lab.geodesics\` has no simulation or print side effects.
+- [ ] The solver itself no longer prints results.
+- [ ] The trajectory still contains a symmetric pair of branches.
+- [ ] We have not yet claimed that event/status handling is complete.
 
 ---
-
+ 
 ## Chapter 1.2 — Give the simulation an explicit result object
 
 ### Goal
