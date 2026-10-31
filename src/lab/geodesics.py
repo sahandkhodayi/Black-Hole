@@ -110,11 +110,32 @@ def simulate_ray(
     # if phi=0 sym eq
     phi_out = solution.t
     u_out = solution.y[0]
-
+    print(f"{solution.t_events[0]}test for escape")
     phi = np.concatenate((-phi_out[:0:-1], phi_out))
     u = np.concatenate((u_out[:0:-1], u_out))
 
     return RayTrajectory(phi=phi, u=u,escaped=True)
+
+
+def simulate_ray_raw(
+    closest_approach: float = 10.0,
+    *,
+    max_angle: float = 8.0,
+):
+    u0 = 1.0 / closest_approach
+
+    solution = solve_ivp(
+        _rhs,
+        (0.0, max_angle),
+        y0=(u0, 0.0),
+        method="DOP853",
+        rtol=1e-9,
+        atol=1e-11,
+        events=_escape_event,
+        max_step=0.02,
+    )
+
+    return solution # test
 
 
 closest_approaches = [3.0, 5.0, 10.0]
@@ -123,7 +144,7 @@ for distance in closest_approaches:
 
     print(
         f"Closest approach: {distance} rs | "
-        f"Number of points: {len(trajectory.phi)}"
+        # f"Number of points: {len(trajectory.phi)}"
 
     )
     print("----------------------------------------")
