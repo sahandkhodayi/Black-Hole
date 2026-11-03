@@ -50,7 +50,7 @@ def inspect_solution(solution):
     print("RHS evaluations:", solution.nfev)
     print("Final phi:", solution.t[-1])
     print("Final u:", solution.y[0, -1])
-    print("Final v:", solution.y[1, -1])
+    print("Final v:.", solution.y[1, -1])
     print("Event times:", solution.t_events)
     print("Step sizes:", step_sizes.min(), "to", step_sizes.max())
 

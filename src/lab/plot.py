@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Circle
 
-from lab.geodesics import simulate_ray
+from geodesics import simulate_ray
 
 
 def plot_rays(closest_approaches=(3.0, 5.0, 10.0), output="outputs/rays.png"):
