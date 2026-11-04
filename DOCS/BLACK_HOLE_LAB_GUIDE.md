@@ -1,3 +1,8 @@
+> **Current guide:** This document is retained as an earlier research/implementation reference. The active implementation sequence, with code placed directly beside the milestone that uses it, is now in [the integrated RK4-to-PPO guide](../GUIDE_FROM_RK4_TO_PPO.md). Start there to avoid following overlapping older instructions.
+> 
+> Repository documentation index: [README.md](../README.md).
+> 
+---
 # Black Hole Lab — Research & Implementation Guide
 
 > **Current project state:** Schwarzschild photon trajectories are working with SciPy's DOP853 reference solver. A custom fixed-step RK4 integrator has been implemented, and `src/lab/compare_plot.py` currently compares its trajectory with DOP853. The next task is not to start PPO. It is to establish a trustworthy numerical baseline and quantify how RK4 behaves as its step size changes.
