@@ -1,3 +1,8 @@
+> **Superseded research direction:** This guide describes the earlier idea of using RL to control numerical step size. That is no longer the project objective. The active goal is to train an RL agent to generate photon trajectories sequentially and learn gravitational light bending.
+>
+> Follow [GUIDE_RL_TRAJECTORY_LEARNING.md](GUIDE_RL_TRAJECTORY_LEARNING.md) for the current plan. This file is retained as a historical reference; do not use its step-size-control milestones as the active roadmap.
+>
+---
 # Black Hole Lab — Integrated Guide: RK4 to PPO
 
 **Purpose:** a single implementation path from the repository's current custom RK4 solver to a measured reinforcement-learning experiment.
