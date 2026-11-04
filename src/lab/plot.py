@@ -42,7 +42,7 @@ def plot_rays(closest_approaches=(3.0, 5.0, 10.0), output="outputs/rays.png"):
         deflection_text = (
             f"{deflection:.6f} rad"
             if deflection is not None
-            else "N/A"
+            else "N/A"# tes
         )
 
         ax.plot(x, y, label=f"r_min = {r_min:g} r_s")
