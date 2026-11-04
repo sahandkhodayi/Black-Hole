@@ -451,7 +451,11 @@ def sample_reference(reference, delta_phi):
     end = reference.escape_angle
     phi = np.arange(0.0, end, delta_phi, dtype=np.float64)
 
-    if len(phi) == 0 or not np.isclose(phi[-1], end):
+    if len(phi) == 0:
+        phi = np.asarray([end], dtype=np.float64)
+    elif np.isclose(phi[-1], end, rtol=0.0, atol=1e-12):
+        phi[-1] = end
+    else:
         phi = np.append(phi, end)
 
     states = reference.state_at(phi).T
@@ -1166,6 +1170,7 @@ class PhotonTrajectoryEnv(gym.Env):
         delta_phi=0.01,
         action_u_bounds=None,
         action_v_bounds=None,
+        scaling_config=None,
         max_decisions=5000,
         reward_weights=(1.0, 0.05, 0.05),
         terminal_bonus=2.0,
@@ -1185,42 +1190,56 @@ class PhotonTrajectoryEnv(gym.Env):
         self.delta_phi = float(delta_phi)
         self.max_decisions = int(max_decisions)
 
-        # Derive every scale and action limit from the supplied cases only.
-        # During training, case_indices contains training cases. During
-        # evaluation, construct a separate environment with test case indices.
-        training_curves = [store.get(int(i)) for i in self.case_indices]
-        training_u = np.concatenate([curve["u"] for curve in training_curves])
-        training_v = np.concatenate([curve["v"] for curve in training_curves])
+        # Fit scales and action limits on training data once. During
+        # evaluation, pass the saved scaling_config from the training run.
+        if scaling_config is None:
+            training_curves = [store.get(int(i)) for i in self.case_indices]
+            training_u = np.concatenate([curve["u"] for curve in training_curves])
+            training_v = np.concatenate([curve["v"] for curve in training_curves])
 
-        self.u_scale = max(float(np.std(training_u)), 1e-6)
-        self.v_scale = max(float(np.std(training_v)), 1e-6)
-        self.rhs_scale = max(
-            float(np.std(1.5 * training_u**2 - training_u)),
-            1e-6,
-        )
+            def padded_bounds(values, lower_limit=None):
+                lo = float(np.min(values))
+                hi = float(np.max(values))
+                margin = max(0.05 * (hi - lo), 1e-5)
+                lower = lo - margin
+                upper = hi + margin
+                if lower_limit is not None:
+                    lower = max(lower_limit, lower)
+                if upper <= lower:
+                    upper = lower + 1e-4
+                return (lower, upper)
 
-        def padded_bounds(values, lower_limit=None):
-            lo = float(np.min(values))
-            hi = float(np.max(values))
-            margin = max(0.05 * (hi - lo), 1e-5)
-            lower = lo - margin
-            upper = hi + margin
-            if lower_limit is not None:
-                lower = max(lower_limit, lower)
-            if upper <= lower:
-                upper = lower + 1e-4
-            return (lower, upper)
+            self.u_scale = max(float(np.std(training_u)), 1e-6)
+            self.v_scale = max(float(np.std(training_v)), 1e-6)
+            self.rhs_scale = max(
+                float(np.std(1.5 * training_u**2 - training_u)),
+                1e-6,
+            )
 
-        self.u_bounds = (
-            tuple(action_u_bounds)
-            if action_u_bounds is not None
-            else padded_bounds(training_u, lower_limit=0.0)
-        )
-        self.v_bounds = (
-            tuple(action_v_bounds)
-            if action_v_bounds is not None
-            else padded_bounds(training_v)
-        )
+            self.u_bounds = (
+                tuple(action_u_bounds)
+                if action_u_bounds is not None
+                else padded_bounds(training_u, lower_limit=0.0)
+            )
+            self.v_bounds = (
+                tuple(action_v_bounds)
+                if action_v_bounds is not None
+                else padded_bounds(training_v)
+            )
+        else:
+            self.u_scale = float(scaling_config["u_scale"])
+            self.v_scale = float(scaling_config["v_scale"])
+            self.rhs_scale = float(scaling_config["rhs_scale"])
+            self.u_bounds = tuple(scaling_config["u_bounds"])
+            self.v_bounds = tuple(scaling_config["v_bounds"])
+
+        self.scaling_config = {
+            "u_scale": self.u_scale,
+            "v_scale": self.v_scale,
+            "rhs_scale": self.rhs_scale,
+            "u_bounds": list(self.u_bounds),
+            "v_bounds": list(self.v_bounds),
+        }
 
         self.w_ref, self.w_ode, self.w_inv = reward_weights
         self.terminal_bonus = float(terminal_bonus)
@@ -1811,6 +1830,8 @@ def main():
         ],
         "action": ["normalized_next_u", "normalized_next_v"],
         "delta_phi": 0.01,
+        # Critical: save training-only normalization and action limits.
+        "environment_scaling": env.unwrapped.scaling_config,
     }
 
     (OUTPUTS / "ppo_config.json").write_text(
@@ -2000,10 +2021,15 @@ def main():
     store = TrajectoryStore(dataset_path)
     _, validation_indices, _ = load_split(split_path)
 
+    saved_config = json.loads(
+        Path("outputs/ppo_config.json").read_text(encoding="utf-8")
+    )
+
     env = PhotonTrajectoryEnv(
         store=store,
         case_indices=validation_indices,
-        delta_phi=0.01,
+        delta_phi=saved_config["delta_phi"],
+        scaling_config=saved_config["environment_scaling"],
     )
 
     model = PPO.load(model_path)
@@ -2041,6 +2067,7 @@ if __name__ == "__main__":
 ### Walkthrough
 
 - The evaluation environment receives validation indices only. It cannot sample training or test rays by accident.
+- It also receives the exact normalization scales and action bounds saved from training. Re-fitting those values on validation/test data would leak information and change the meaning of the policy's observations/actions.
 - reset(options={"case_index": ...}) selects an exact ray, making repeated visualization reproducible.
 - model.predict uses deterministic=True so the plotted policy output is not randomly sampled.
 - rollout stores the generated state sequence from the environment and the reference sequence from the selected data case.
