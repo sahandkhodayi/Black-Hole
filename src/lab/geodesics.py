@@ -66,7 +66,6 @@ _escape_event.direction = -1
 
 
 
-
 def simulate_ray(
     closest_approach: float = 10.0,
     *,
@@ -74,16 +73,13 @@ def simulate_ray(
     rtol: float = 1e-9,
     atol: float = 1e-11,
 ) -> RayTrajectory:
-    """Integrate a scattering ray from its point of closest approach """
-    
+
     if not np.isfinite(closest_approach) or closest_approach <= 1.5:
         raise ValueError("closest_approach must be finite and > 1.5.")
 
-    
     if not np.isfinite(max_angle) or max_angle <= 0:
         raise ValueError("max_angle must be finite and positive.")
 
-    
     if not (0 < rtol < 1 and 0 < atol < 1):
         raise ValueError("rtol and atol must be between 0 and 1.")
 
@@ -92,7 +88,7 @@ def simulate_ray(
     solution = solve_ivp(
         _rhs,
         (0.0, max_angle),
-        y0=(u0, 0.0),  # Initial conditions
+        y0=(u0, 0.0),
         method="DOP853",
         rtol=rtol,
         atol=atol,
@@ -102,20 +98,26 @@ def simulate_ray(
 
     if not solution.success:
         raise RuntimeError(solution.message)
-    print("Escape angle:", float(((2*solution.t[-1])-np.pi)*(57.2958)))
-    print("Final u:", solution.y[0, -1])
-    print("Event detected:", len(solution.t_events[0]) > 0)
 
+    escaped = len(solution.t_events[0]) > 0
 
-    # if phi=0 sym eq
     phi_out = solution.t
     u_out = solution.y[0]
-    print(f"{solution.t_events[0]}test for escape")
+
     phi = np.concatenate((-phi_out[:0:-1], phi_out))
     u = np.concatenate((u_out[:0:-1], u_out))
 
-    return RayTrajectory(phi=phi, u=u,escaped=True)
+    escape_angle = (
+        float(solution.t_events[0][0]) if escaped else None
+    )
 
+    return RayTrajectory(
+        phi=phi,
+        u=u,
+        escaped=escaped,
+        escape_angle=escape_angle,
+        nfev=solution.nfev,
+    )
 
 def simulate_ray_raw(
     closest_approach: float = 10.0,
@@ -138,13 +140,3 @@ def simulate_ray_raw(
     return solution # test
 
 
-closest_approaches = [3.0, 5.0, 10.0]
-for distance in closest_approaches:
-    trajectory = simulate_ray(closest_approach=distance)
-
-    print(
-        f"Closest approach: {distance} rs | "
-        # f"Number of points: {len(trajectory.phi)}"
-
-    )
-    print("----------------------------------------")
