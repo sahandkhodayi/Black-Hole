@@ -1,3 +1,8 @@
+> **Documentation update:** The current, step-by-step implementation path from the existing RK4 solver through numerical validation, adaptive control, Gymnasium, and PPO is now maintained in [GUIDE_FROM_RK4_TO_PPO.md](GUIDE_FROM_RK4_TO_PPO.md).
+> 
+> This file is retained as the broader unified research textbook and background reference. For the next coding task and the active milestone order, follow the integrated guide above. The repository entry point is [README.md](README.md).
+> 
+---
 # Black Hole Lab — The Unified Research & Implementation Textbook
 
 **Repository:** https://github.com/sahandkhodayi/Black-Hole  
