@@ -1162,10 +1162,10 @@ class PhotonTrajectoryEnv(gym.Env):
     def __init__(
         self,
         store,
-        training_indices,
+        case_indices,
         delta_phi=0.01,
-        action_u_bounds=(0.0, 0.6),
-        action_v_bounds=(-0.6, 0.05),
+        action_u_bounds=None,
+        action_v_bounds=None,
         max_decisions=5000,
         reward_weights=(1.0, 0.05, 0.05),
         terminal_bonus=2.0,
@@ -1174,15 +1174,53 @@ class PhotonTrajectoryEnv(gym.Env):
         super().__init__()
 
         self.store = store
-        self.training_indices = np.asarray(training_indices, dtype=int)
+        self.case_indices = np.asarray(case_indices, dtype=int)
 
-        if len(self.training_indices) == 0:
-            raise ValueError("At least one training trajectory is required")
+        if len(self.case_indices) == 0:
+            raise ValueError("At least one trajectory index is required")
+
+        if np.any(self.case_indices < 0) or np.any(self.case_indices >= len(store.r0)):
+            raise ValueError("case_indices contains an index outside the dataset")
 
         self.delta_phi = float(delta_phi)
-        self.u_bounds = tuple(action_u_bounds)
-        self.v_bounds = tuple(action_v_bounds)
         self.max_decisions = int(max_decisions)
+
+        # Derive every scale and action limit from the supplied cases only.
+        # During training, case_indices contains training cases. During
+        # evaluation, construct a separate environment with test case indices.
+        training_curves = [store.get(int(i)) for i in self.case_indices]
+        training_u = np.concatenate([curve["u"] for curve in training_curves])
+        training_v = np.concatenate([curve["v"] for curve in training_curves])
+
+        self.u_scale = max(float(np.std(training_u)), 1e-6)
+        self.v_scale = max(float(np.std(training_v)), 1e-6)
+        self.rhs_scale = max(
+            float(np.std(1.5 * training_u**2 - training_u)),
+            1e-6,
+        )
+
+        def padded_bounds(values, lower_limit=None):
+            lo = float(np.min(values))
+            hi = float(np.max(values))
+            margin = max(0.05 * (hi - lo), 1e-5)
+            lower = lo - margin
+            upper = hi + margin
+            if lower_limit is not None:
+                lower = max(lower_limit, lower)
+            if upper <= lower:
+                upper = lower + 1e-4
+            return (lower, upper)
+
+        self.u_bounds = (
+            tuple(action_u_bounds)
+            if action_u_bounds is not None
+            else padded_bounds(training_u, lower_limit=0.0)
+        )
+        self.v_bounds = (
+            tuple(action_v_bounds)
+            if action_v_bounds is not None
+            else padded_bounds(training_v)
+        )
 
         self.w_ref, self.w_ode, self.w_inv = reward_weights
         self.terminal_bonus = float(terminal_bonus)
@@ -1223,14 +1261,6 @@ class PhotonTrajectoryEnv(gym.Env):
         self.generated_states = []
         self.done = False
 
-        self.u_scale = max(
-            float(np.std(store.u)),
-            1e-6,
-        )
-        self.v_scale = max(
-            float(np.std(store.v)),
-            1e-6,
-        )
 
     def _observation(self):
         u, v = self.state
@@ -1305,11 +1335,7 @@ class PhotonTrajectoryEnv(gym.Env):
         )
 
         scale_u = max(step * self.v_scale, 1e-7)
-        rhs_scale = max(
-            float(np.std(1.5 * self.store.u**2 - self.store.u)),
-            1e-6,
-        )
-        scale_v = max(step * rhs_scale, 1e-7)
+        scale_v = max(step * self.rhs_scale, 1e-7)
 
         e_ode = float(
             0.5 * (
@@ -1336,9 +1362,13 @@ class PhotonTrajectoryEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
-        selected = int(
-            self.np_random.choice(self.training_indices)
-        )
+        if options is not None and "case_index" in options:
+            selected = int(options["case_index"])
+            if selected not in self.case_indices:
+                raise ValueError("Requested case is not enabled in this environment")
+        else:
+            selected = int(self.np_random.choice(self.case_indices))
+
         self.case = self.store.get(selected)
 
         self.r0 = self.case["r0"]
@@ -1588,17 +1618,95 @@ The clipping discourages excessively large policy updates. We will use the libra
 
 ## 26. Split dataset by ray before training
 
-Never randomly split individual points from one trajectory between training and test. Adjacent points from the same ray are extremely similar and would leak information.
+Never split individual points from a trajectory between training and test. Neighboring points from one ray are strongly correlated. If one point is in training and the next point is in test, the evaluation is contaminated.
 
-Split by r0 / case ID:
+Split by complete ray index. Each entry of the stored r0 array identifies one independent trajectory.
 
-- training cases: used for RL updates;
-- validation cases: used for reward and hyperparameter decisions;
-- test cases: untouched until final evaluation.
+Create scripts/make_splits.py:
 
-The policy should train on a broad range of r0 values, but test on values that were not used for gradient updates.
+~~~python
+import json
+from pathlib import Path
 
-Create a split manifest and save the exact case indices. Use the same split for each model comparison later.
+import numpy as np
+
+
+def make_splits(
+    dataset_path="data/photon_trajectories.npz",
+    output_path="data/split_manifest.json",
+    seed=42,
+    train_fraction=0.70,
+    validation_fraction=0.15,
+):
+    data = np.load(dataset_path, allow_pickle=False)
+    count = len(data["r0"])
+
+    if count < 10:
+        raise ValueError("Generate more trajectories before splitting")
+
+    if not 0 < train_fraction < 1:
+        raise ValueError("train_fraction must be between zero and one")
+
+    if not 0 < validation_fraction < 1:
+        raise ValueError("validation_fraction must be between zero and one")
+
+    if train_fraction + validation_fraction >= 1:
+        raise ValueError("A non-empty test fraction is required")
+
+    rng = np.random.default_rng(seed)
+    indices = rng.permutation(count)
+
+    train_end = int(count * train_fraction)
+    validation_end = train_end + int(count * validation_fraction)
+
+    train = indices[:train_end]
+    validation = indices[train_end:validation_end]
+    test = indices[validation_end:]
+
+    manifest = {
+        "seed": seed,
+        "train_indices": train.tolist(),
+        "validation_indices": validation.tolist(),
+        "test_indices": test.tolist(),
+        "train_r0": data["r0"][train].tolist(),
+        "validation_r0": data["r0"][validation].tolist(),
+        "test_r0": data["r0"][test].tolist(),
+    }
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    return manifest
+
+
+if __name__ == "__main__":
+    result = make_splits()
+    print(
+        len(result["train_indices"]),
+        len(result["validation_indices"]),
+        len(result["test_indices"]),
+    )
+~~~
+
+### Walkthrough
+
+- The script reads only the r0 case list. It does not split the packed trajectory samples.
+- rng.permutation produces one reproducible shuffled ordering.
+- The first 70 percent of case IDs become training rays.
+- The next 15 percent become validation rays.
+- The remaining rays become held-out test rays.
+- The manifest stores both indices and the corresponding physical r0 values. This makes it possible to inspect exactly which rays were used.
+
+Run it once:
+
+~~~bash
+python -m scripts.make_splits
+~~~
+
+Do not regenerate the split every time you train. A new split changes the experiment. Keep this manifest fixed when comparing PPO runs and later comparison models.
+
+The same split must be used by RL, the supervised MLP, and the PINN. Normalization statistics and action bounds must be estimated from training rays only. Validation is used for tuning. Test rays must remain untouched until final evaluation.
 
 ## 27. Environment factory
 
@@ -1607,15 +1715,12 @@ Create a small factory so training and evaluation construct the same environment
 ### File: src/lab/trajectory_env.py — factory
 
 ~~~python
+# Add these imports at the top of src/lab/trajectory_env.py.
 import json
 from pathlib import Path
 
-import numpy as np
 
-from lab.trajectory_env import PhotonTrajectoryEnv, TrajectoryStore
-
-
-def load_split(path):
+def load_split(path="data/split_manifest.json"):
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
 
     return (
@@ -1635,11 +1740,10 @@ def make_training_env(
 
     env = PhotonTrajectoryEnv(
         store=store,
-        training_indices=train_indices,
+        case_indices=train_indices,
         delta_phi=0.01,
     )
     env.reset(seed=seed)
-
     return env
 ~~~
 
@@ -1784,7 +1888,174 @@ Inspect:
 
 A rising PPO reward is not proof that the light curve is correct.
 
-## 29. First visual rollout
+## 29. Evaluate one fixed case and save the generated path
+
+The environment reset method accepts an optional case_index. This lets us create a separate environment containing only validation or test indices, then evaluate a specific ray reproducibly.
+
+Create scripts/evaluate_rl.py:
+
+~~~python
+import json
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from stable_baselines3 import PPO
+
+from lab.trajectory_env import (
+    PhotonTrajectoryEnv,
+    TrajectoryStore,
+    load_split,
+)
+
+
+def rollout(model, env, case_index):
+    observation, info = env.reset(
+        seed=123,
+        options={"case_index": int(case_index)},
+    )
+
+    total_reward = 0.0
+    terminated = False
+    truncated = False
+
+    while not (terminated or truncated):
+        action, _ = model.predict(
+            observation,
+            deterministic=True,
+        )
+
+        observation, reward, terminated, truncated, step_info = env.step(action)
+        total_reward += float(reward)
+
+    return {
+        "case_index": int(case_index),
+        "r0": float(info["r0"]),
+        "phi": np.asarray(env.generated_phi),
+        "states": np.asarray(env.generated_states),
+        "reference_phi": env.case["phi"],
+        "reference_u": env.case["u"],
+        "reference_v": env.case["v"],
+        "escape_angle": float(env.case["escape_angle"]),
+        "deflection_radian": float(env.case["deflection_radian"]),
+        "return": total_reward,
+        "termination_reason": step_info["termination_reason"],
+    }
+
+
+def plot_rollout(result, output_path):
+    generated = result["states"]
+    generated_phi = result["phi"]
+
+    reference_phi = result["reference_phi"]
+    reference_u = result["reference_u"]
+
+    valid_generated = generated[:, 0] > 0
+    valid_reference = reference_u > 0
+
+    generated_r = 1.0 / generated[valid_generated, 0]
+    reference_r = 1.0 / reference_u[valid_reference]
+
+    gx = generated_r * np.cos(generated_phi[valid_generated])
+    gy = generated_r * np.sin(generated_phi[valid_generated])
+
+    rx = reference_r * np.cos(reference_phi[valid_reference])
+    ry = reference_r * np.sin(reference_phi[valid_reference])
+
+    limit = 30.0
+    gmask = np.hypot(gx, gy) <= limit
+    rmask = np.hypot(rx, ry) <= limit
+
+    figure, axis = plt.subplots(figsize=(9, 9))
+
+    axis.plot(rx[rmask], ry[rmask], label="DOP853 reference", linewidth=2.5)
+    axis.plot(gx[gmask], gy[gmask], "--", label="RL generated", linewidth=2.0)
+
+    axis.plot(rx[rmask], -ry[rmask], alpha=0.5)
+    axis.plot(gx[gmask], -gy[gmask], "--", alpha=0.5)
+
+    axis.add_patch(plt.Circle((0, 0), 1.0, color="black", label="Event horizon"))
+    axis.add_patch(
+        plt.Circle((0, 0), 1.5, fill=False, linestyle=":", label="Photon sphere")
+    )
+
+    axis.set_aspect("equal")
+    axis.set_xlim(-limit, limit)
+    axis.set_ylim(-limit, limit)
+    axis.set_xlabel("x / Schwarzschild radius")
+    axis.set_ylabel("y / Schwarzschild radius")
+    axis.set_title(f"RL trajectory, r0={result['r0']:.3f}")
+    axis.grid(True, alpha=0.25)
+    axis.legend()
+    figure.tight_layout()
+    figure.savefig(output_path, dpi=180)
+    plt.close(figure)
+
+
+def main():
+    dataset_path = "data/photon_trajectories.npz"
+    split_path = "data/split_manifest.json"
+    model_path = "outputs/models/ppo_photon_trajectory.zip"
+
+    store = TrajectoryStore(dataset_path)
+    _, validation_indices, _ = load_split(split_path)
+
+    env = PhotonTrajectoryEnv(
+        store=store,
+        case_indices=validation_indices,
+        delta_phi=0.01,
+    )
+
+    model = PPO.load(model_path)
+
+    output_dir = Path("outputs/evaluation")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    summaries = []
+
+    for case_index in validation_indices[:5]:
+        result = rollout(model, env, int(case_index))
+
+        filename = output_dir / f"case_{case_index:04d}.png"
+        plot_rollout(result, filename)
+
+        summaries.append({
+            "case_index": result["case_index"],
+            "r0": result["r0"],
+            "return": result["return"],
+            "termination_reason": result["termination_reason"],
+            "escape_angle_reference": result["escape_angle"],
+            "deflection_reference": result["deflection_radian"],
+        })
+
+    (output_dir / "summary.json").write_text(
+        json.dumps(summaries, indent=2),
+        encoding="utf-8",
+    )
+
+
+if __name__ == "__main__":
+    main()
+~~~
+
+### Walkthrough
+
+- The evaluation environment receives validation indices only. It cannot sample training or test rays by accident.
+- reset(options={"case_index": ...}) selects an exact ray, making repeated visualization reproducible.
+- model.predict uses deterministic=True so the plotted policy output is not randomly sampled.
+- rollout stores the generated state sequence from the environment and the reference sequence from the selected data case.
+- plot_rollout converts u to radius only where u is positive, then applies the same plotting limit to both curves.
+- The summary JSON records the case, return, termination reason, and reference terminal values. We will add actual curve-error metrics in the evaluation milestone.
+
+Run after training:
+
+~~~bash
+python -m scripts.evaluate_rl
+~~~
+
+At this stage we want to inspect a handful of validation curves manually before running a large evaluation.
+
+
 
 Before increasing training time, load the saved model and let it generate trajectories for several training and validation rays.
 
