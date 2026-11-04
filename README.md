@@ -1,115 +1,72 @@
-# Black Hole Lab — Complete Project Textbook
+# Black Hole Lab — The Complete RL Photon-Trajectory Project
 
-**A code-first research project on Schwarzschild photon trajectories and reinforcement learning.**
+**One project. One main objective. One implementation path.**
 
-> **Main research question:** Can a reinforcement-learning agent learn to generate photon trajectories near a Schwarzschild black hole, reproduce gravitational light bending, and generalize to initial conditions it has never seen?
+> **Research question:** Can a reinforcement-learning agent learn to generate photon trajectories around a Schwarzschild black hole, reproduce gravitational light bending, and generalize to initial conditions it has never encountered?
 
-This is the one canonical project guide. It combines the useful mathematics, implementation explanations, tests, numerical experiments, machine-learning comparisons, RL design, and research workflow from the previous Markdown guides. Follow it in order. Code included here is a reference implementation or a milestone blueprint; it does not mean that the code has already been added to the repository or tested in your checkout.
+The agent's job is to generate the light curve. It observes the current photon state and predicts the next point. It does **not** choose the numerical integrator's step size. The angular increment is fixed by the environment.
+
+This textbook is organized around building the RL system first:
+
+1. Generate a dataset of complete reference photon curves.
+2. Build the sequential trajectory-generation environment.
+3. Design the action, observation, and reward.
+4. Implement and train the RL agent.
+5. Render and inspect the curves it generates.
+6. Add the complete test suite and scientific evaluation.
+7. Only after the main RL system works, build supervised MLP, PINN, weak-field, and other comparison experiments.
+
+The physics simulator already exists, so we will reuse it. We are not going to spend most of the project writing tests for infrastructure before the agent exists. We will still use small smoke checks while developing, but the systematic test suite is a later milestone.
 
 ---
 
 # How to use this textbook
 
-Each milestone follows this cycle:
+Each implementation chapter contains:
 
-1. **Understand** the physics, mathematics, or engineering idea.
-2. **Inspect** the current repository implementation.
-3. **Attempt** the task yourself before reading the full reference implementation.
-4. **Implement** the smallest complete change.
-5. **Test** normal cases and failure cases.
-6. **Measure** results and save reproducible outputs.
-7. **Explain** what the result means before moving to the next milestone.
+- **What we are building** — the concrete deliverable.
+- **Why it exists** — the research or engineering reason.
+- **How the data flows** — what enters a function and what comes out.
+- **Implementation** — code that belongs to this milestone.
+- **Code walkthrough** — why each important block exists.
+- **How to run it** — commands and expected artifacts.
+- **What to inspect** — what a successful result should look like.
+- **Common mistakes** — what can make the result misleading.
 
-You already know Python and Git and have completed a full programming project. This guide does not restart from beginner Python. It focuses on the new physics, numerical-analysis, RL, and research-engineering work required by this project.
+Do not blindly copy an entire file before understanding its responsibility. Work through one file at a time, run it, inspect its output, then continue. The code examples are implementation references; they are not claims that future files have already been committed or executed.
 
-When a code example differs from the actual source API, the source code wins. Inspect the file and adapt the guide rather than replacing working code blindly.
+You already know Python, Git, and basic programming. This is not a beginner Python course. The new learning is in numerical physics, trajectory representation, RL environment design, reward shaping, sequential policies, and scientific evaluation.
 
-## The project in one picture
+## Important scope decision
 
-~~~text
-Schwarzschild physics
-        |
-        v
-DOP853 reference trajectories
-        |
-        +------> numerical validation
-        |
-        +------> multi-ray trajectory dataset
-                         |
-             +-----------+-----------+
-             |                       |
-             v                       v
-       supervised MLP              RL agent
-       / PINN comparison           sequentially generates
-             |                     the next photon state
-             |                       |
-             +-----------+-----------+
-                         |
-                         v
-             held-out trajectory evaluation
-                         |
-                         v
-          curve accuracy, deflection, physics,
-              generalization and limitations
-~~~
+This project is **RL-based photon trajectory generation**.
 
-The main agent generates the curve. Numerical solvers provide trusted physics references and baselines; they are not the RL agent's action.
+- The numerical solver gives us accurate reference curves.
+- The RL policy generates the next photon state.
+- The environment evaluates the generated point.
+- PPO is our first algorithm, not the research goal itself.
+- MLP and PINN are later comparison methods, not parallel main projects.
+- Adaptive step-size control is no longer the main RL task.
+
+The first experiment focuses on **escaping scattering rays** with closest approach above the photon sphere. Captured rays require a different incoming-ray initialization and are a later extension.
 
 ---
 
-# PART I — Project definition and current repository
+# PART I — Understand the physics we already have
 
-## 1. What we are building
+## 1. Current repository state
 
-The original project numerically simulates light bending around a non-rotating Schwarzschild black hole. We are evolving it into a research project where an RL policy generates the photon trajectory sequentially.
+The inspected code contains:
 
-The agent will:
+| File | Existing responsibility |
+|---|---|
+| src/lab/geodesics.py | Schwarzschild photon ODE, escape event, DOP853 simulation, RayTrajectory |
+| src/lab/integrators.py | Generic classical RK4 one-step integrator |
+| src/lab/compare_plot.py | Early RK4/DOP853 comparison visualization |
+| project.toml | Project metadata under its current filename |
 
-- receive the initial photon condition and its current state;
-- predict the next point of the trajectory;
-- receive feedback about curve accuracy and physical consistency;
-- repeat this process until the ray escapes or the episode fails;
-- learn to handle different closest-approach radii;
-- be evaluated on initial conditions not used during training.
+The current physics module exposes the following names:
 
-The agent does **not**:
-- change the black-hole mass or spacetime;
-- alter the governing geodesic equation;
-- control a real photon;
-- choose the numerical solver step size in the main experiment.
-
-The environment uses a fixed angular increment. The policy's action is the next predicted photon state, not a step-size multiplier.
-
-## 2. Research scope and scientific honesty
-
-The project studies a deterministic differential equation. A numerical method already solves it accurately. Therefore, RL is not automatically a better way to compute the trajectory.
-
-Our question is whether sequential reward-driven learning can generate accurate trajectories and generalize to unseen initial conditions. The work must compare RL with simpler methods, particularly supervised learning and direct numerical integration.
-
-A successful result does not require RL to beat every baseline. A carefully measured result showing that supervised learning or a numerical solver is more suitable is scientifically valid.
-
-We must distinguish three kinds of learning:
-
-| Method | Training signal | Role in this project |
-|---|---|---|
-| Supervised learning | Explicit reference input/target pairs | Important baseline |
-| Physics-Informed Neural Network (PINN) | Differential-equation residual plus initial/boundary conditions | Physics-aware comparison |
-| Reinforcement Learning | Rewards from sequential environment interaction | Main research direction |
-
-Our RL agent will receive a dense reference-tracking reward during the first experiment. That makes it **teacher-guided RL**. It is not discovering general relativity from nothing. We will also test physics-only reward variants and compare against supervised models.
-
-## 3. What is already implemented
-
-The inspected repository contains:
-
-| File | Responsibility | Current status |
-|---|---|---|
-| src/lab/geodesics.py | Schwarzschild photon ODE, escape event, DOP853 simulation, RayTrajectory | Implemented |
-| src/lab/integrators.py | Classical RK4 one-step method | Implemented |
-| src/lab/compare_plot.py | Early RK4/DOP853 comparison plot | Prototype |
-| project.toml | Project metadata | Present under this filename |
-
-The current geodesic module exposes:
 - RayTrajectory.phi
 - RayTrajectory.u
 - RayTrajectory.escaped
@@ -123,633 +80,224 @@ The current geodesic module exposes:
 - _rhs()
 - _escape_event()
 
-The current integrator exposes:
+The RK4 function is:
 
 ~~~python
 rk4_step(rhs, phi, state, step_size)
 ~~~
 
-The current state order is **[u, v]**, where u is inverse radius and v is its derivative with respect to phi.
+The state order is always:
 
-### Known numerical observations
-
-Earlier runs produced these escape-angle values:
-
-| Closest approach r0 | Escape angle |
-|---:|---:|
-| 3.0 | about 2.078234 rad |
-| 5.0 | about 1.820914 rad |
-| 10.0 | about 1.681734 rad |
-
-These are regression references from previous runs, not exact analytical constants. Slight changes may occur with different solver tolerances or library versions.
-
-An earlier RK4 comparison at r0=5 and h=0.01 reported 182 RK4 steps, 728 RK4 RHS evaluations, 1109 DOP853 RHS evaluations, and a sampled maximum u difference around 6.70e-6. This one run does not prove RK4 is generally more efficient; it was not a full matched-accuracy benchmark.
-
-## 4. Target project structure
-
-This is a target structure, not a claim that every future file already exists. Create modules when their milestone begins.
-
-~~~text
-pyproject.toml                 # packaging metadata after resolving current filename
-src/
-  lab/
-    __init__.py
-    geodesics.py                # physical model and DOP853
-    integrators.py              # RK4 one-step method
-    reference.py                # dense reference trajectories
-    validation.py               # weak-field and critical sweeps
-    trajectory_data.py          # full trajectory dataset
-    trajectory_metrics.py       # curve and physics metrics
-    models.py                   # supervised neural baselines
-    pinn.py                     # physics-informed model
-    trajectory_env.py           # RL environment
-    policies.py                 # baseline policies
-    train_rl.py                 # optional package-level training entry
-scripts/
-  generate_trajectories.py
-  inspect_trajectories.py
-  validate_weak_field.py
-  critical_sweep.py
-  train_supervised.py
-  train_rl.py
-  evaluate_models.py
-  render_trajectories.py
-tests/
-  test_geodesics.py
-  test_integrators.py
-  test_reference.py
-  test_validation.py
-  test_trajectory_data.py
-  test_trajectory_metrics.py
-  test_models.py
-  test_pinn.py
-  test_trajectory_env.py
-data/                            # generated locally; normally gitignored
-outputs/                         # plots, CSVs, metrics; selected artifacts only
+~~~python
+state = np.array([u, v])
 ~~~
 
-Do not create all these files immediately. The next milestone queue at the end tells you what to create now.
+where u is inverse radius and v is du/dphi. Do not reverse these components.
 
----
+The current comparison script is a prototype. It is useful for visual intuition, but it does not yet localize the escape event accurately, compare every state component, or provide a complete convergence analysis. We will not make the RL project wait for a perfect numerical-analysis package. DOP853 already provides the reference solver needed to build our first dataset.
 
-# PART II — Schwarzschild photon physics
+## 2. Schwarzschild orbit equation
 
-## 5. Units, variables, and equation
-
-Use normalized Schwarzschild-radius units:
+We use normalized units where the Schwarzschild radius is:
 
 \[
 r_s=1.
 \]
 
-Here r is measured in units of the Schwarzschild radius. Define inverse radius:
+Define inverse radius:
 
 \[
 u(\phi)=\frac{1}{r(\phi)}.
 \]
 
-The independent variable is the angular coordinate phi. The reduced photon orbit equation implemented in this project is:
+For the equatorial photon orbit in the current model:
 
 \[
-\frac{d^2u}{d\phi^2}+u=\frac{3}{2}u^2,
+\frac{d^2u}{d\phi^2}+u=\frac{3}{2}u^2.
 \]
 
-or equivalently:
+Equivalently:
 
 \[
-\boxed{u''=\frac{3}{2}u^2-u}.
+u''=\frac{3}{2}u^2-u.
 \]
 
-This equation describes equatorial null geodesics in Schwarzschild spacetime under the chosen normalization.
-
-## 6. Convert the second-order equation to a first-order system
-
-Numerical ODE interfaces usually operate on a first-order system. Define:
+Introduce:
 
 \[
 v=\frac{du}{d\phi}.
 \]
 
-Then:
+Then the second-order ODE becomes the first-order system:
 
 \[
-\frac{du}{d\phi}=v,
+\boxed{u'=v,\qquad v'=\frac{3}{2}u^2-u}.
 \]
 
-\[
-\frac{dv}{d\phi}=\frac{3}{2}u^2-u.
-\]
-
-The state is:
+The state vector is:
 
 \[
-\mathbf y=
+s(\phi)=
 \begin{bmatrix}
-u\\v
-\end{bmatrix},
-\qquad
-\mathbf y'=f(\phi,\mathbf y).
+u(\phi)\\
+v(\phi)
+\end{bmatrix}.
 \]
 
-Therefore the right-hand side must return:
-
-~~~python
-return du_dphi, d2u_dphi2
-~~~
-
-Do not reverse the state order. The first component is u; the second is v.
-
-## 7. Initial conditions and the photon sphere
-
-The existing simulation starts at the point of closest approach r0. By symmetry:
+At the closest-approach point r0, symmetry gives:
 
 \[
-u(0)=\frac{1}{r_0},\qquad v(0)=0.
+u(0)=u_0=\frac{1}{r_0},\qquad v(0)=0.
 \]
 
 The photon sphere is at:
 
 \[
-r_{\rm ph}=\frac{3}{2}r_s.
+r_{\rm ph}=1.5r_s.
 \]
 
-For the current scattering setup, use:
+For the current scattering initialization, use r0 greater than 1.5. As r0 approaches 1.5 from above, the ray experiences increasingly strong bending and can spend a long angular interval near the photon sphere.
 
-\[
-r_0>1.5.
-\]
+Do not treat r0 below 1.5 as a normal escaping ray using the current closest-approach initialization. Captured-ray experiments will require incoming initial conditions at a large radius and a separately defined capture event.
 
-As r0 approaches 1.5 from above, the photon can execute increasingly strong bending and orbit near the photon sphere before escaping. The required angular integration interval can become very large.
+## 3. Escape and deflection
 
-At exactly r0=1.5, the current initial state lies on the circular photon orbit. It should not be treated as an ordinary escaping ray.
-
-For r0 below 1.5, the existing closest-approach initialization is not an appropriate way to represent a captured ray. Captured-ray experiments need a physically correct incoming initial condition, for example one parameterized by impact parameter at large radius. Add capture only as a later extension.
-
-## 8. Escape and deflection
-
-The outgoing scattering ray escapes when u crosses zero:
+The outgoing scattering ray escapes when:
 
 \[
 u=0.
 \]
 
-This corresponds to radius tending to infinity. SciPy's event function returns u. It is terminal and has direction -1 so that it detects the positive-to-negative crossing.
+That corresponds to radius tending to infinity. The existing event function returns u and is configured as terminal with direction -1, so it detects a positive-to-negative crossing.
 
-The positive-side event coordinate is the escape angle:
+The positive-side escape angle is:
 
 \[
 \phi_{\rm escape}.
 \]
 
-For the symmetric scattering setup, the deflection is:
+For the symmetric scattering trajectory, the total deflection is:
 
 \[
 \boxed{\alpha=2\phi_{\rm escape}-\pi}.
 \]
 
-The result property in the existing code is named **deflection_radian**, singular. Do not copy old snippets that refer to deflection_radians or deflection_degrees unless you add those properties deliberately.
+The existing result property is named **deflection_radian**. Older guide snippets sometimes used different plural property names. Follow the actual code API.
 
-The current plot reflects the positive-side trajectory across the x-axis. This uses the symmetry of the scattering solution; it does not mean the incoming half was separately integrated.
+## 4. Convert a trajectory into a picture
 
-## 9. Cartesian visualization
-
-Since u=1/r:
+For every valid positive-u sample:
 
 \[
-r=\frac{1}{u}.
+r=\frac{1}{u},
 \]
-
-Convert to Cartesian coordinates:
 
 \[
 x=r\cos\phi,\qquad y=r\sin\phi.
 \]
 
-The event horizon is a circle of radius one in the normalized plot. The photon sphere is a circle of radius 1.5 and can be added as a visual reference, but it is not the event horizon.
+The event horizon is a circle of radius one. The photon sphere is a circle of radius 1.5; they are not the same thing.
 
-At escape u tends to zero, so r tends to infinity. Plotting code must mask u<=0 and optionally mask radii beyond a chosen visible radius. Do not allow infinity to determine the axes.
+To draw the full symmetric scattering path, mirror the positive-side trajectory across the x-axis. This uses the symmetry of the current setup; the incoming half was not independently integrated.
 
-For a symmetric scattering plot, mirror the positive-side ray:
+At escape, u approaches zero and r approaches infinity. Plotting code must mask non-positive u and optionally hide points beyond a chosen plotting radius. Do not let infinity determine the graph's axes.
 
-- original path: (x(phi), y(phi));
-- reflected path: (x(phi), -y(phi)).
+## 5. A useful conserved quantity
 
-Use equal aspect ratio. Keep a reference curve and a predicted curve on the same axes when evaluating a model.
-
-## 10. Conserved quantity
-
-The first-order system has a useful first integral.
-
-Starting with:
+The system has a first integral. Since:
 
 \[
 v'=\frac{3}{2}u^2-u,\qquad u'=v,
 \]
 
-multiply the first equation by 2v:
+we can derive:
 
 \[
-2vv'=3u^2v-2uv.
+2vv'=(3u^2-2u)u'.
 \]
 
-Since u'=v:
+Integrating gives:
 
 \[
-\frac{d(v^2)}{d\phi}
-=
-\frac{d(u^3-u^2)}{d\phi}.
+v^2=u^3-u^2+C.
 \]
 
-Thus:
+Therefore:
 
 \[
-v^2-u^3+u^2=C.
+\boxed{I(u,v)=v^2-u^3+u^2}
 \]
 
-Define:
+is constant along an exact trajectory.
 
-\[
-\boxed{I(u,v)=v^2-u^3+u^2}.
-\]
-
-It should be constant along an exact trajectory. At closest approach v0=0 and u0=1/r0:
+At closest approach, v0=0 and u0=1/r0, so:
 
 \[
 I_0=u_0^2-u_0^3.
 \]
 
-This invariant is a useful independent diagnostic and possible reward term. It does not replace the ODE residual or direct trajectory comparison.
+This invariant becomes one of our physical diagnostics and one possible reward term. It helps us detect generated curves that drift away from the physical solution.
 
 ---
 
-# PART III — Make the numerical physics trustworthy
+# PART II — Milestone 1: Generate the photon-trajectory dataset
 
-## 11. Understand the output of solve_ivp
+<badge color="success">First implementation milestone</badge>
 
-The existing simulator calls SciPy's solve_ivp. It returns a structured result containing, among other fields:
+This is where we begin coding. Before an RL agent can learn a curve, we need many examples of what valid curves look like.
+
+## 6. What the dataset must contain
+
+A dataset containing only r0 and deflection angle is not enough. That would let us train a model that predicts one final number, but our agent must generate the whole light path.
+
+Each trajectory case needs:
 
 | Field | Meaning |
 |---|---|
-| t | independent-variable sample points, here phi |
-| y | state values; row 0 is u and row 1 is v |
-| success | whether the solver completed its requested integration successfully |
-| message | explanation of solver completion or failure |
-| t_events | event coordinates for each event function |
-| y_events | state at each event |
-| nfev | number of right-hand-side evaluations |
-| sol | continuous interpolant when dense_output=True |
+| case_id | Stable identifier for this ray |
+| r0 | Closest-approach radius in Schwarzschild-radius units |
+| u0 | Initial inverse radius, equal to 1/r0 |
+| phi | Angular coordinates along the outgoing trajectory |
+| u | Inverse radius at each angular coordinate |
+| v | du/dphi at each angular coordinate |
+| escape_angle | Positive-side angle at the escape event |
+| deflection_radian | 2 times escape angle minus pi |
+| status | Escaped or unresolved |
+| solver settings | Method, tolerances, max step, max angle |
 
-Important distinctions:
-- solver success is not the same thing as physical escape;
-- a solver may reach max_angle successfully without an escape event;
-- escaped must be based on the event list;
-- escape_angle must come from the event time;
-- nfev measures RHS work, not wall-clock runtime.
+Why store both u and v? Because the RL policy's output is the next state [u,v]. If we only store u, we would have to estimate v numerically from the sampled curve. That would introduce an avoidable derivative error. SciPy already calculates v as part of the ODE state, so we should preserve it.
 
-For the existing result object, escaped is derived from the event list. Preserve that behavior.
+## 7. Choose the first training domain
 
-## 12. DOP853 as the reference solver
+Start with ordinary escaping rays, not the extremely difficult near-critical edge.
 
-The project uses DOP853 with tight tolerances and a maximum angular step. It is a high-order explicit Runge–Kutta method suitable for smooth non-stiff trajectories.
-
-Typical current settings:
+A practical first range is:
 
 ~~~python
-solution = solve_ivp(
-    _rhs,
-    (0.0, max_angle),
-    y0=(u0, 0.0),
-    method="DOP853",
-    rtol=1e-9,
-    atol=1e-11,
-    events=_escape_event,
-    max_step=0.02,
-)
+r0_values = np.linspace(2.2, 12.0, 120)
 ~~~
 
-For a dense reference dataset, use dense_output=True and tighter tolerances after checking computational cost:
+This gives us weak, moderate, and relatively strong bending while staying away from the most difficult critical cases in the first dataset.
+
+Later, extend toward:
 
 ~~~python
-solution = solve_ivp(
-    _rhs,
-    (0.0, max_angle),
-    y0=(u0, 0.0),
-    method="DOP853",
-    rtol=1e-12,
-    atol=1e-14,
-    events=_escape_event,
-    max_step=0.01,
-    dense_output=True,
-)
+r0 = 1.5 + offset
 ~~~
 
-DOP853 is not an analytical solution. It is a numerical reference. Repeat selected cases with tighter tolerances and a smaller max_step to check that the reference itself is sufficiently stable.
+with positive offsets distributed geometrically. Near-critical rays may require a much larger max_angle. A solver reaching max_angle without detecting escape is **unresolved at the limit**, not automatically captured.
 
-## 13. Protect the existing geodesic implementation with tests
+Do not mix unresolved curves into the training set as though they were complete escaping trajectories. Keep their metadata so we can inspect them, but initially train the scattering policy on successfully escaped cases.
 
-Create tests/test_geodesics.py:
+## 8. Why we need dense reference output
 
-~~~python
-import numpy as np
-import pytest
+The existing simulate_ray function returns a RayTrajectory intended for visualization. For learning, we need the full state [u,v] at chosen angular coordinates.
 
-from lab.geodesics import simulate_ray
+SciPy's solve_ivp supports dense_output=True. This creates a continuous interpolating solution over the interval actually integrated.
 
+We will wrap it in a small reference object. This object has one job: given an angle phi, return the reference u and v.
 
-def test_normal_scattering_ray_escapes():
-    ray = simulate_ray(closest_approach=5.0)
-    assert ray.escaped
-    assert ray.escape_angle is not None
-    assert ray.escape_angle > 0.0
-    assert ray.nfev > 0
-
-
-def test_escape_angle_and_deflection_are_consistent():
-    ray = simulate_ray(closest_approach=5.0)
-    assert ray.deflection_radian is not None
-    assert np.isclose(
-        ray.deflection_radian,
-        2.0 * ray.escape_angle - np.pi,
-    )
-
-
-@pytest.mark.parametrize("r0", [1.0, 1.5, 0.0, -2.0, np.inf, np.nan])
-def test_invalid_closest_approach_is_rejected(r0):
-    with pytest.raises(ValueError):
-        simulate_ray(closest_approach=r0)
-
-
-def test_farther_ray_has_weaker_bending_for_selected_cases():
-    near = simulate_ray(closest_approach=3.0)
-    far = simulate_ray(closest_approach=10.0)
-    assert near.deflection_radian > far.deflection_radian
-~~~
-
-The last assertion protects an expected trend for selected test cases. It is not a proof for every possible parameter.
-
-Also test a deliberately short max_angle. It should complete without escape, with escaped=False and no deflection value. Never treat the final integration sample as an escape angle when no event was detected.
-
-## 14. Stop simulations from running at import time
-
-A module should define functions, classes, and constants when imported. It should not unexpectedly run a simulation or create a plot.
-
-If geodesics.py contains a demonstration loop at module scope, move it into main():
-
-~~~python
-def main():
-    for distance in (3.0, 5.0, 10.0):
-        ray = simulate_ray(closest_approach=distance)
-        print(
-            distance,
-            ray.escaped,
-            ray.escape_angle,
-            ray.deflection_radian,
-        )
-
-
-if __name__ == "__main__":
-    main()
-~~~
-
-The import guard ensures that the demo runs only when the module is executed directly.
-
-## 15. Validate RK4 independently of black-hole physics
-
-The existing generic integrator is classical RK4. Validate it on a known solution before trusting it on geodesics.
-
-Use:
-
-\[
-y'=y,\qquad y(0)=1,\qquad y(t)=e^t.
-\]
-
-Create tests/test_integrators.py:
-
-~~~python
-import numpy as np
-import pytest
-
-from lab.integrators import rk4_step
-
-
-def exponential_rhs(t, state):
-    return state
-
-
-def test_one_step_matches_exponential():
-    h = 0.1
-    actual = rk4_step(exponential_rhs, 0.0, np.array([1.0]), h)
-    expected = np.array([np.exp(h)])
-    assert np.allclose(actual, expected, rtol=1e-6, atol=1e-9)
-
-
-def test_rk4_does_not_mutate_input():
-    state = np.array([1.0, 2.0])
-    before = state.copy()
-    rk4_step(exponential_rhs, 0.0, state, 0.01)
-    assert np.array_equal(state, before)
-
-
-def test_one_step_uses_four_rhs_calls():
-    calls = []
-
-    def counted_rhs(t, state):
-        calls.append(t)
-        return state
-
-    rk4_step(counted_rhs, 0.0, np.array([1.0]), 0.1)
-    assert len(calls) == 4
-
-
-@pytest.mark.parametrize("h", [0.0, -0.1, np.inf, np.nan])
-def test_invalid_step_is_rejected(h):
-    with pytest.raises(ValueError):
-        rk4_step(exponential_rhs, 0.0, np.array([1.0]), h)
-
-
-def test_state_must_be_one_dimensional():
-    with pytest.raises(ValueError):
-        rk4_step(exponential_rhs, 0.0, np.ones((2, 2)), 0.1)
-~~~
-
-Classical RK4 uses:
-
-\[
-k_1=f(t,y),
-\]
-
-\[
-k_2=f(t+h/2,y+hk_1/2),
-\]
-
-\[
-k_3=f(t+h/2,y+hk_2/2),
-\]
-
-\[
-k_4=f(t+h,y+hk_3),
-\]
-
-\[
-y_{n+1}=y_n+\frac{h}{6}(k_1+2k_2+2k_3+k_4).
-\]
-
-The integrator must remain generic. Do not hardcode the Schwarzschild equation into rk4_step.
-
-### Test fourth-order convergence
-
-Integrate the exponential equation to a fixed final time T with h, h/2, h/4. The global RK4 error should approach O(h^4).
-
-\[
-p_{\rm observed}=
-\log_2\left(\frac{E(h)}{E(h/2)}\right).
-\]
-
-The observed order should approach four in the asymptotic regime. Coarse steps and very small steps can deviate.
-
-## 16. Weak-field validation
-
-Closest-approach radius and impact parameter are not the same quantity.
-
-For a Schwarzschild turning point, the dimensionless impact parameter is:
-
-\[
-\bar b=\frac{b}{r_s}
-=\frac{r_0}{\sqrt{1-1/r_0}}.
-\]
-
-In the weak-field regime, the leading-order deflection is:
-
-\[
-\alpha\approx\frac{2}{\bar b}.
-\]
-
-This is an approximation, not an exact formula. Its relative error should generally shrink when the ray passes farther from the black hole.
-
-Create scripts/validate_weak_field.py:
-
-~~~python
-import csv
-from pathlib import Path
-
-import matplotlib.pyplot as plt
-import numpy as np
-
-from lab.geodesics import simulate_ray
-
-
-def impact_parameter(r0):
-    return r0 / np.sqrt(1.0 - 1.0 / r0)
-
-
-def main():
-    rows = []
-    for r0 in [10.0, 15.0, 20.0, 30.0, 50.0, 80.0]:
-        ray = simulate_ray(closest_approach=r0, max_angle=8.0)
-        b_bar = impact_parameter(r0)
-        weak = 2.0 / b_bar
-
-        if ray.escaped and ray.deflection_radian is not None:
-            numerical = ray.deflection_radian
-            relative_error = abs(numerical - weak) / abs(numerical)
-            status = "escaped"
-        else:
-            numerical = ""
-            relative_error = ""
-            status = "unresolved"
-
-        rows.append({
-            "r_min_rs": r0,
-            "impact_parameter_rs": b_bar,
-            "numerical_rad": numerical,
-            "weak_field_rad": weak,
-            "relative_error": relative_error,
-            "status": status,
-        })
-
-    output = Path("outputs/weak_field.csv")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
-
-    valid = [row for row in rows if row["status"] == "escaped"]
-    plt.loglog(
-        [row["impact_parameter_rs"] for row in valid],
-        [row["numerical_rad"] for row in valid],
-        "o-",
-        label="DOP853",
-    )
-    plt.loglog(
-        [row["impact_parameter_rs"] for row in valid],
-        [row["weak_field_rad"] for row in valid],
-        "--",
-        label="Leading weak-field approximation",
-    )
-    plt.xlabel("Impact parameter b / r_s")
-    plt.ylabel("Deflection (radians)")
-    plt.grid(True, which="both", alpha=0.25)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig("outputs/weak_field.png", dpi=180)
-    plt.close()
-
-
-if __name__ == "__main__":
-    main()
-~~~
-
-Use the actual property name deflection_radian from the current API. Older notes may contain deflection_radians; that name does not exist in the inspected current class.
-
-## 17. Critical photon-sphere sweep
-
-The deflection grows rapidly as r0 approaches 1.5 from above. This is the strong-bending regime and is especially important for later generalization tests.
-
-Use offsets:
-
-~~~python
-offsets = [10.0 ** (-power) for power in range(1, 6)]
-r0_values = [1.5 + offset for offset in offsets]
-~~~
-
-Integrate with a larger max_angle, such as 200, and a sufficiently small maximum step. Record:
-- r0;
-- offset from 1.5;
-- escaped status;
-- escape angle;
-- deflection;
-- nfev;
-- solver status;
-- maximum angle reached.
-
-If the solver reaches max_angle without the escape event, label the case **unresolved_at_limit**. Do not call it captured. A long-lived near-critical scattering ray may simply need a larger angular interval.
-
-Keep unresolved cases in the CSV with empty target values and explicit status metadata. Do not silently drop hard cases.
-
----
-
-# PART IV — Build a reliable reference trajectory dataset
-
-## 18. Why we need full curves, not only deflection labels
-
-A scalar dataset of (r0, deflection_angle) can train a model to predict only the final angle. That is not our main task.
-
-The RL agent must generate the full path. Each reference example therefore needs:
-- closest approach r0;
-- initial u0;
-- angular coordinates phi;
-- inverse-radius values u;
-- derivatives v;
-- escape angle;
-- deflection angle;
-- solver tolerances and status.
-
-The existing RayTrajectory contains phi and u but not the full two-component state. For the dataset, use the raw solve_ivp result or a dense reference object that preserves both u and v. Do not estimate v by finite-differencing a sparse plotted curve when the solver already computes it.
-
-## 19. Dense reference object
-
-Create src/lab/reference.py:
+### File: src/lab/reference.py
 
 ~~~python
 from dataclasses import dataclass
@@ -775,27 +323,39 @@ class ReferenceRay:
         return float(events[0]) if len(events) else None
 
     @property
+    def deflection_radian(self):
+        angle = self.escape_angle
+        if angle is None:
+            return None
+        return 2.0 * angle - np.pi
+
+    @property
     def rhs_evaluations(self):
         return int(self.solution.nfev)
 
     def state_at(self, phi):
         if self.solution.sol is None:
-            raise RuntimeError("Reference solver was not run with dense_output=True")
-        if not self.solution.t[0] <= phi <= self.solution.t[-1]:
-            raise ValueError("phi is outside the integrated interval")
-        return np.asarray(self.solution.sol(phi), dtype=np.float64)
+            raise RuntimeError("Reference was not created with dense_output=True")
+
+        values = np.asarray(phi, dtype=float)
+
+        if np.any(values < self.solution.t[0]) or np.any(values > self.solution.t[-1]):
+            raise ValueError("Requested angle is outside the integrated interval")
+
+        return np.asarray(self.solution.sol(values), dtype=np.float64)
 
 
 def build_reference(
     closest_approach,
     *,
-    max_angle=30.0,
+    max_angle=20.0,
     rtol=1e-12,
     atol=1e-14,
     max_step=0.01,
 ):
     if not np.isfinite(closest_approach) or closest_approach <= 1.5:
         raise ValueError("closest_approach must be finite and > 1.5")
+
     if not np.isfinite(max_angle) or max_angle <= 0:
         raise ValueError("max_angle must be finite and positive")
 
@@ -814,387 +374,591 @@ def build_reference(
     if not result.success:
         raise RuntimeError(result.message)
 
-    return ReferenceRay(result, float(closest_approach))
+    return ReferenceRay(
+        solution=result,
+        closest_approach=float(closest_approach),
+    )
 ~~~
 
-This uses the current private physics functions to ensure the reference and existing simulator solve the same equation. A later refactor can expose a stable public physics API. Never query dense output after the event or beyond the actual integration interval.
+### Code walkthrough
 
-## 20. Dataset sampling strategy
+**Imports**
 
-Start with a modest range of scattering rays. A useful initial domain is r0 from 3 to 10, then expand:
-- farther rays provide weak bending;
-- intermediate rays provide moderate bending;
-- near-critical rays provide strong bending and stress-test generalization.
+- dataclass gives us a compact immutable container for a reference trajectory.
+- NumPy handles scalar and array inputs consistently.
+- solve_ivp performs the numerical integration.
+- _rhs and _escape_event are imported from the existing physics module. This is important: we do not want a second copy of the Schwarzschild equation that could accidentally differ from the simulator.
 
-Use a mix of broad coverage and denser sampling near the photon sphere. Geometric offsets are useful:
+**ReferenceRay**
+
+The class stores the raw SciPy solution and the closest-approach parameter.
+
+- escaped checks whether the first event list contains an event. Solver success alone is not the same as physical escape.
+- escape_angle reads the actual event time, rather than guessing from the final sample.
+- deflection_radian applies the symmetry formula.
+- rhs_evaluations exposes the solver's work count.
+- state_at calls the dense interpolant. It checks the requested angles first because dense output must not be used outside the interval the solver actually integrated.
+
+**build_reference**
+
+The function validates r0 and max_angle, constructs the initial state [1/r0, 0], and calls DOP853.
+
+- rtol and atol control the solver's error tolerances.
+- max_step limits the solver's angular step.
+- events terminates integration at escape.
+- dense_output=True makes arbitrary-angle state queries possible.
+
+The return object is not an analytical solution. It is our high-accuracy numerical teacher. Later, we will check selected cases again with tighter tolerances to ensure reference error is negligible.
+
+## 9. Resample each reference curve onto a shared angular grid
+
+The solver's internal sample points are adaptive, so different curves contain different phi coordinates. A learning environment is easier to build if every ray uses a fixed angular increment.
+
+Choose:
 
 ~~~python
-offsets = np.geomspace(0.03, 30.0, 180)
-r0_values = 1.5 + offsets
+delta_phi = 0.01
 ~~~
 
-This covers a wide range of distances from the critical value. However, some near-critical cases may not escape before max_angle. Keep their status rather than fabricating labels.
+For each ray:
+1. create angles 0, delta_phi, 2*delta_phi, and so on;
+2. stop before passing the escape event;
+3. append the exact escape angle as the final coordinate;
+4. query dense reference output at all these angles.
 
-## 21. Store variable-length trajectories safely
+The final interval may be shorter than delta_phi. That is intentional. It ensures the final reference point is exactly at the escape event.
 
-Near-critical rays can require much longer angular ranges than weakly bent rays. Avoid forcing every trajectory into an object array that requires unsafe pickle loading.
+Why not use a common fixed number of points for every ray? Because escape angles differ. We want the grid spacing to be comparable while allowing different trajectory lengths.
 
-A robust packed format stores:
-- one flat phi array;
-- one flat u array;
-- one flat v array;
-- an offsets array marking where each trajectory begins and ends;
-- a case table containing r0, escape angle, deflection, status, and solver settings.
+### File: src/lab/trajectory_data.py
 
-For example, trajectory i occupies:
+~~~python
+import json
+from pathlib import Path
 
-\[
-[\mathrm{offsets}[i],\ \mathrm{offsets}[i+1]).
-\]
+import numpy as np
 
-Save numeric arrays with NumPy NPZ and metadata in JSON. Alternatively, store one NPZ per trajectory plus a manifest. Either way, the loader must validate shapes, finite values, and offsets.
+from lab.reference import build_reference
 
-## 22. Split by trajectory, never by adjacent points
 
-The train/validation/test split must be grouped by initial condition r0.
+def sample_reference(reference, delta_phi):
+    if not np.isfinite(delta_phi) or delta_phi <= 0:
+        raise ValueError("delta_phi must be finite and positive")
 
-Do not randomly split all points from all curves. Adjacent points from the same trajectory are highly correlated; putting neighboring points in train and test creates severe leakage.
+    if not reference.escaped:
+        raise ValueError("Cannot sample a trajectory without an escape event")
 
-Create disjoint sets:
-- training r0 values;
-- validation r0 values;
-- held-out test r0 values.
+    end = reference.escape_angle
+    phi = np.arange(0.0, end, delta_phi, dtype=np.float64)
 
-Only training trajectories determine normalization means, standard deviations, action bounds, and reward scales. Validation tunes the model and reward. Test is reserved for final evaluation.
+    if len(phi) == 0 or not np.isclose(phi[-1], end):
+        phi = np.append(phi, end)
 
-Save all case IDs, r0 values, seeds, and solver settings in a dataset manifest.
+    states = reference.state_at(phi).T
 
-## 23. Dataset quality gates
+    return phi, states[:, 0], states[:, 1]
 
-Before using data for training:
-- every escaped trajectory has a valid escape event;
-- no unresolved trajectory receives a fabricated deflection label;
-- u and v have the same sample count;
-- phi is strictly increasing;
-- all values before the event are finite;
-- no sample is taken beyond the reference interval;
-- train/validation/test case IDs are disjoint;
-- units and angle conventions are documented;
-- selected curves agree with the existing simulator.
 
-Create:
-- src/lab/trajectory_data.py
-- scripts/generate_trajectories.py
-- scripts/inspect_trajectories.py
-- tests/test_trajectory_data.py
+def generate_trajectory_dataset(
+    r0_values,
+    output_path="data/photon_trajectories.npz",
+    manifest_path="data/trajectory_manifest.json",
+    *,
+    delta_phi=0.01,
+    max_angle=20.0,
+    rtol=1e-12,
+    atol=1e-14,
+    max_step=0.01,
+):
+    output_path = Path(output_path)
+    manifest_path = Path(manifest_path)
+
+    all_phi = []
+    all_u = []
+    all_v = []
+    offsets = [0]
+
+    escaped_r0 = []
+    escape_angles = []
+    deflections = []
+    unresolved = []
+
+    for case_id, r0_value in enumerate(r0_values):
+        r0 = float(r0_value)
+
+        reference = build_reference(
+            r0,
+            max_angle=max_angle,
+            rtol=rtol,
+            atol=atol,
+            max_step=max_step,
+        )
+
+        if not reference.escaped:
+            unresolved.append({
+                "case_id": case_id,
+                "r0": r0,
+                "status": "unresolved_at_max_angle",
+            })
+            continue
+
+        phi, u, v = sample_reference(reference, delta_phi)
+
+        if not (
+            np.all(np.isfinite(phi))
+            and np.all(np.isfinite(u))
+            and np.all(np.isfinite(v))
+        ):
+            unresolved.append({
+                "case_id": case_id,
+                "r0": r0,
+                "status": "non_finite_reference",
+            })
+            continue
+
+        all_phi.append(phi)
+        all_u.append(u)
+        all_v.append(v)
+
+        offsets.append(offsets[-1] + len(phi))
+
+        escaped_r0.append(r0)
+        escape_angles.append(reference.escape_angle)
+        deflections.append(reference.deflection_radian)
+
+    if not escaped_r0:
+        raise RuntimeError("No complete escaping trajectories were generated")
+
+    packed_phi = np.concatenate(all_phi)
+    packed_u = np.concatenate(all_u)
+    packed_v = np.concatenate(all_v)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    np.savez_compressed(
+        output_path,
+        r0=np.asarray(escaped_r0, dtype=np.float64),
+        phi=packed_phi,
+        u=packed_u,
+        v=packed_v,
+        offsets=np.asarray(offsets, dtype=np.int64),
+        escape_angle=np.asarray(escape_angles, dtype=np.float64),
+        deflection_radian=np.asarray(deflections, dtype=np.float64),
+    )
+
+    manifest = {
+        "schema_version": 1,
+        "description": "Schwarzschild scattering photon trajectories",
+        "equation": "u'' = 1.5*u**2 - u",
+        "state": ["u", "v=du/dphi"],
+        "length_unit": "Schwarzschild radii",
+        "angle_unit": "radians",
+        "reference_solver": "SciPy DOP853",
+        "rtol": rtol,
+        "atol": atol,
+        "max_step": max_step,
+        "max_angle": max_angle,
+        "delta_phi": delta_phi,
+        "num_escaped": len(escaped_r0),
+        "unresolved": unresolved,
+        "data_file": str(output_path),
+    }
+
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2),
+        encoding="utf-8",
+    )
+
+    return manifest
+~~~
+
+### Code walkthrough
+
+**sample_reference**
+
+This function converts one adaptive DOP853 solution into a fixed-grid trajectory.
+
+- It refuses invalid delta_phi.
+- It refuses unresolved rays, because there is no valid escape endpoint to sample.
+- np.arange creates the regular angular grid.
+- The exact escape angle is appended as the last point.
+- state_at returns a matrix with shape (2, number_of_angles). Transposing it gives one row per angle.
+- Column zero is u; column one is v.
+
+At the final point, u should be approximately zero and v should be negative for an outgoing scattering ray.
+
+**generate_trajectory_dataset**
+
+This function loops over the requested closest approaches.
+
+- Each r0 receives a stable case_id during generation.
+- build_reference solves the physical ray.
+- Unresolved rays are recorded in the manifest instead of being mislabeled as valid.
+- Complete curves are packed into flat arrays.
+- offsets records where each trajectory begins and ends in those arrays.
+- np.savez_compressed stores numeric arrays without Python object pickling.
+- The JSON manifest records the physics, units, solver settings, grid increment, and unresolved cases.
+
+**Why packed arrays?**
+
+Trajectories have different lengths because their escape angles differ. Instead of forcing them into a rectangular array with fake padding, we concatenate them. The offsets array tells us which slice belongs to each ray.
+
+For trajectory i:
+
+~~~python
+start = offsets[i]
+end = offsets[i + 1]
+
+phi_i = phi[start:end]
+u_i = u[start:end]
+v_i = v[start:end]
+~~~
+
+This is memory-efficient, simple to load, and safe with allow_pickle=False.
+
+## 10. Dataset generation script
+
+### File: scripts/generate_trajectories.py
+
+~~~python
+import argparse
+
+import numpy as np
+
+from lab.trajectory_data import generate_trajectory_dataset
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate reference Schwarzschild photon trajectories."
+    )
+    parser.add_argument("--count", type=int, default=120)
+    parser.add_argument("--r-min", type=float, default=2.2)
+    parser.add_argument("--r-max", type=float, default=12.0)
+    parser.add_argument("--delta-phi", type=float, default=0.01)
+    parser.add_argument("--max-angle", type=float, default=20.0)
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+
+    if args.count < 2:
+        parser.error("--count must be at least 2")
+    if args.r_min <= 1.5:
+        parser.error("--r-min must be greater than 1.5")
+    if args.r_max <= args.r_min:
+        parser.error("--r-max must be greater than --r-min")
+
+    # A fixed seed makes the parameter ordering reproducible.
+    rng = np.random.default_rng(args.seed)
+    r0_values = np.linspace(args.r_min, args.r_max, args.count)
+    rng.shuffle(r0_values)
+
+    manifest = generate_trajectory_dataset(
+        r0_values,
+        delta_phi=args.delta_phi,
+        max_angle=args.max_angle,
+    )
+
+    print("Generated trajectories:", manifest["num_escaped"])
+    print("Unresolved cases:", len(manifest["unresolved"]))
+    print("Dataset:", manifest["data_file"])
+
+
+if __name__ == "__main__":
+    main()
+~~~
+
+### Explanation
+
+- argparse exposes the important dataset parameters at the command line.
+- count controls how many independent rays are generated.
+- r-min and r-max define the first scattering domain.
+- delta-phi is the angular spacing used when resampling reference curves.
+- max-angle bounds how long the solver searches for an escape event.
+- The seeded generator shuffles the r0 values so the packed file is not ordered only from weak to strong bending. The values themselves remain the same.
+- generate_trajectory_dataset does the actual simulation and storage.
+- The main guard prevents dataset generation when the module is imported.
+
+Run from the repository root:
+
+~~~bash
+python -m scripts.generate_trajectories --count 120 --r-min 2.2 --r-max 12 --delta-phi 0.01
+~~~
+
+Expected files:
+
+~~~text
+data/
+    photon_trajectories.npz
+    trajectory_manifest.json
+~~~
+
+Do not move to RL before you have inspected at least several generated curves.
+
+## 11. Inspect the dataset visually
+
+The point of this script is not just to print array shapes. We want to see if the dataset actually covers different bending regimes.
+
+### File: scripts/inspect_trajectories.py
+
+~~~python
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+def main():
+    data = np.load(
+        "data/photon_trajectories.npz",
+        allow_pickle=False,
+    )
+
+    r0_values = data["r0"]
+    phi = data["phi"]
+    u = data["u"]
+    offsets = data["offsets"]
+    escape_angles = data["escape_angle"]
+
+    print("Number of trajectories:", len(r0_values))
+    print("Packed samples:", len(phi))
+    print("Average points per ray:", np.diff(offsets).mean())
+    print("Closest approaches:", r0_values.min(), r0_values.max())
+
+    figure, axis = plt.subplots(figsize=(9, 9))
+
+    chosen = np.linspace(
+        0,
+        len(r0_values) - 1,
+        min(8, len(r0_values)),
+        dtype=int,
+    )
+
+    max_plot_radius = 30.0
+
+    for index in chosen:
+        start, end = offsets[index:index + 2]
+        local_phi = phi[start:end]
+        local_u = u[start:end]
+
+        valid = local_u > 0
+        radius = np.full_like(local_u, np.inf)
+        np.divide(1.0, local_u, out=radius, where=valid)
+
+        x = radius * np.cos(local_phi)
+        y = radius * np.sin(local_phi)
+
+        visible = valid & (radius <= max_plot_radius)
+
+        axis.plot(
+            x[visible],
+            y[visible],
+            label=f"r0={r0_values[index]:.2f}",
+        )
+        axis.plot(x[visible], -y[visible], alpha=0.7)
+
+    axis.add_patch(plt.Circle((0, 0), 1.0, color="black", label="Event horizon"))
+    axis.add_patch(
+        plt.Circle(
+            (0, 0),
+            1.5,
+            fill=False,
+            linestyle=":",
+            label="Photon sphere",
+        )
+    )
+
+    axis.set_aspect("equal")
+    axis.set_xlim(-max_plot_radius, max_plot_radius)
+    axis.set_ylim(-max_plot_radius, max_plot_radius)
+    axis.set_xlabel("x / Schwarzschild radius")
+    axis.set_ylabel("y / Schwarzschild radius")
+    axis.set_title("Reference photon trajectories")
+    axis.grid(True, alpha=0.25)
+    axis.legend()
+    figure.tight_layout()
+
+    Path("outputs").mkdir(exist_ok=True)
+    figure.savefig("outputs/reference_trajectory_gallery.png", dpi=180)
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
+~~~
+
+### Code walkthrough
+
+The data file is opened with allow_pickle=False because we deliberately store only numeric arrays.
+
+The offsets array is the key to recovering each variable-length curve. For each selected ray, we slice the packed arrays with its start and end offsets.
+
+We only compute radius where u is positive. np.full_like initializes radius to infinity; np.divide fills the valid positions. The visible mask removes invalid and excessively distant points.
+
+The plot draws:
+- the positive-side path;
+- its mirrored path;
+- the event horizon at radius one;
+- the photon sphere at radius 1.5.
+
+Run:
+
+~~~bash
+python -m scripts.inspect_trajectories
+~~~
+
+Expected artifact:
+
+~~~text
+outputs/reference_trajectory_gallery.png
+~~~
+
+### Dataset gate
+
+Before implementing the agent, inspect:
+- Are weak, moderate, and strong bending cases represented?
+- Are all stored u and v values finite?
+- Are phi values increasing in every curve?
+- Does the final sample correspond to the escape event?
+- Are there unresolved cases, and are they marked?
+- Do the curves look like the trajectories produced by the existing simulator?
+
+This is a practical smoke check, not yet the final test suite.
 
 ---
 
-# PART V — Baselines before RL
+# PART III — Milestone 2: Design the sequential RL problem
 
-## 24. Numerical baseline
+## 12. What does the agent actually learn?
 
-DOP853 is our high-accuracy reference. RK4 remains a numerical baseline and is useful for verifying convergence and discretization effects.
-
-If a fixed-step RK4 convergence study is run, compare at common angular coordinates. Never compare arrays by index when they have different sampling grids.
-
-For each h, record:
-- number of steps;
-- RHS evaluations;
-- maximum u error;
-- maximum v error;
-- escape-angle error;
-- deflection error;
-- wall-clock runtime over repeated trials.
-
-Classical RK4 has global error O(h^4) under the usual smooth, stable assumptions. Halving h should approach a factor of 16 error reduction in the asymptotic regime.
-
-This validation is important for the quality of our references and plotting, but it is not the RL research question.
-
-## 25. Weak-field baseline
-
-The leading weak-field estimate:
+At angular coordinate phi_t, the agent receives the current photon state and predicts the next state:
 
 \[
-\alpha_{\rm weak}\approx\frac{2}{\bar b}
+(u_{t+1},v_{t+1}).
 \]
 
-is a transparent physical baseline. It should perform well far from the photon sphere and degrade in the strong-field regime. That limitation is expected, not a bug to hide.
-
-## 26. Scalar deflection predictor (optional supporting baseline)
-
-A simple model can predict the final deflection angle from r0 or impact parameter. This is not the target RL task because it does not generate a curve. It is useful for checking whether the dataset contains a learnable scalar relationship and for visualizing how much harder full trajectory generation is.
-
-For scalar regression:
-- input: r0 or dimensionless impact parameter;
-- target: deflection in radians;
-- metrics: MAE, RMSE, residual plots;
-- train/validation/test split: grouped by ray case;
-- normalization: fit on training only.
-
-Do not present scalar deflection prediction as the main deliverable.
-
-## 27. Supervised trajectory model
-
-A more relevant baseline is a model that maps:
+The environment advances the angle by a fixed increment:
 
 \[
-(\phi,r_0)\longrightarrow(u,v).
+\phi_{t+1}=\min(\phi_t+\Delta\phi,\phi_{\rm escape}).
 \]
 
-It predicts the trajectory directly instead of generating a sequential rollout. This is a useful supervised baseline because the same DOP853 trajectory data supplies labels.
-
-A simple PyTorch model:
-
-~~~python
-import torch
-from torch import nn
-
-
-class TrajectoryMLP(nn.Module):
-    def __init__(self, width=128):
-        super().__init__()
-        self.network = nn.Sequential(
-            nn.Linear(2, width),
-            nn.Tanh(),
-            nn.Linear(width, width),
-            nn.Tanh(),
-            nn.Linear(width, width),
-            nn.Tanh(),
-            nn.Linear(width, 2),
-        )
-
-    def forward(self, phi_and_r0):
-        return self.network(phi_and_r0)
-~~~
-
-Inputs should be normalized using training-set statistics. Targets u and v should also be scaled. Train with an MSE or weighted state loss, use validation early stopping, and evaluate only after checkpoint selection.
-
-The held-out test set must contain r0 values absent from training, not just randomly held-out adjacent points.
-
-This model is a fair and important comparison:
-- it has direct access to labelled reference pairs during training;
-- it predicts the state at an arbitrary phi;
-- it does not accumulate sequential rollout errors in the same way as the RL policy.
-
-The comparison will reveal whether the sequential reward-driven task offers any advantage beyond supervised interpolation.
-
-## 28. Physics-Informed Neural Network
-
-A PINN approximates the trajectory as a continuous function:
+The trajectory is generated one decision at a time:
 
 \[
-u_\theta(\phi,r_0).
+s_0\rightarrow s_1\rightarrow s_2\rightarrow\cdots\rightarrow s_T.
 \]
 
-Autograd computes derivatives with respect to phi. The physics residual is:
+The next state chosen by the policy becomes the current state for the following decision. If the agent makes a poor prediction, its future observations are now based on that imperfect prediction. This sequential dependency is what makes the trajectory rollout different from a simple one-shot curve plot.
 
-\[
-\mathcal R_\theta=
-\frac{\partial^2u_\theta}{\partial\phi^2}
-+u_\theta-\frac32u_\theta^2.
-\]
+## 13. Define the MDP
 
-The ODE residual loss is:
+| RL concept | Meaning in Black Hole Lab |
+|---|---|
+| Environment | Photon trajectory-generation simulator |
+| Episode | One scattering ray for a selected r0 |
+| Observation | Initial ray parameter and current generated photon state |
+| Action | Proposed next u and v |
+| Transition | Advance phi by fixed delta_phi and accept the proposed state |
+| Reward | Curve accuracy and physical consistency |
+| Terminal success | Valid completion at the reference escape angle |
+| Failure | Invalid state or physically implausible trajectory |
+| Truncation | Maximum number of decisions reached |
 
-\[
-L_f=\mathbb E[\mathcal R_\theta^2].
-\]
+The policy must never see the future reference values in its observation. The environment may use the reference state to calculate teacher-tracking reward during training.
 
-The initial-condition losses are:
+## 14. Observation design
 
-\[
-L_0=\mathbb E\left[
-\left(u_\theta(0,r_0)-\frac{1}{r_0}\right)^2
-\right],
-\]
-
-\[
-L_1=\mathbb E\left[
-\left(\frac{\partial u_\theta}{\partial\phi}(0,r_0)\right)^2
-\right].
-\]
-
-The total loss:
-
-\[
-L=L_f+\lambda_0L_0+\lambda_1L_1.
-\]
-
-The ODE alone does not determine a unique trajectory. Initial conditions are essential.
-
-### Autograd sanity check
-
-Before implementing the PINN, verify second derivatives:
-
-~~~python
-import torch
-
-x = torch.tensor([[0.2], [0.5], [0.8]], requires_grad=True)
-y = x**3
-dy = torch.autograd.grad(y.sum(), x, create_graph=True)[0]
-d2y = torch.autograd.grad(dy.sum(), x)[0]
-
-expected = 6.0 * x.detach()
-assert torch.allclose(d2y, expected, atol=1e-5)
-~~~
-
-For f(x)=x³, f''(x)=6x. create_graph=True preserves the derivative graph so that the first derivative can itself be differentiated.
-
-### PINN model skeleton
-
-~~~python
-import torch
-from torch import nn
-
-
-class TrajectoryPINN(nn.Module):
-    def __init__(self, width=64):
-        super().__init__()
-        self.network = nn.Sequential(
-            nn.Linear(2, width), nn.Tanh(),
-            nn.Linear(width, width), nn.Tanh(),
-            nn.Linear(width, width), nn.Tanh(),
-            nn.Linear(width, 1),
-        )
-
-    def forward(self, phi, r0):
-        inputs = torch.cat((phi, r0), dim=1)
-        return self.network(inputs)
-
-
-def derivatives(model, phi, r0):
-    phi = phi.detach().clone().requires_grad_(True)
-    u = model(phi, r0)
-    du = torch.autograd.grad(
-        u.sum(), phi, create_graph=True
-    )[0]
-    d2u = torch.autograd.grad(
-        du.sum(), phi, create_graph=True
-    )[0]
-    return u, du, d2u
-~~~
-
-A complete PINN training loop must sample collocation points in the valid domain, sample r0 values, enforce initial conditions, calculate the residual, and validate against held-out DOP853 trajectories. Do not claim success based only on a low training residual; compare predicted curves and deflection angles.
-
-The PINN is a later comparison branch, not a second main project. Do not build it before the RL environment and supervised baseline are functioning.
-
----
-
-# PART VI — Reinforcement learning: the main project
-
-## 29. Define the MDP precisely
-
-A Markov Decision Process consists of:
-- state/observation;
-- action;
-- transition;
-- reward;
-- episode termination;
-- policy.
-
-For this project, one episode is one scattering ray.
-
-**Environment state:** current u, v, phi, initial u0 or r0, previous generated-state information, and the selected reference case.
-
-**Policy observation:** a normalized subset of the environment state. It must not include future reference states.
-
-**Action:** proposed next u and v, in normalized continuous coordinates.
-
-**Transition:** the environment advances phi by the fixed delta_phi and applies the proposed state if valid.
-
-**Reward:** a combination of reference tracking, ODE residual, conserved-quantity drift, and terminal behavior.
-
-**Episode end:** valid outward escape, invalid state, or a configured horizon.
-
-This is sequential because every chosen state becomes the current state for the next action. An incorrect action can move the rollout away from the physical curve, making later decisions harder.
-
-## 30. Observation design
-
-A first observation vector is:
+Start with a small observation vector:
 
 \[
 o_t=[
-u_0,\ u_t,\ v_t,\ \phi_t/\phi_{\max},\
-u_t/u_0,\ e_{t-1}
+u_0,\ u_t,\ v_t,\ \phi_t/\phi_{\rm escape},\ e_{t-1}
 ].
 \]
 
-Meaning:
+where:
 - u0 identifies the ray's initial closest approach;
-- ut, vt describe the current state;
-- normalized phi describes progress;
-- u/u0 measures progress from closest approach;
-- e_(t-1) stores the previous transition error.
+- ut and vt describe the current generated state;
+- normalized phi describes progress through the episode;
+- e_(t-1) is the previous normalized transition error.
 
-An optional later feature is previous action or recent tracking-error trend. Add features only through ablations.
+The reference future state is not included.
 
-Normalization:
-1. calculate means and scales on training trajectories;
-2. handle zero-variance columns explicitly;
-3. save the normalization configuration;
-4. apply it identically in validation and test;
-5. never use held-out data to fit normalization.
+Why include u0? The same local state may appear in different ray cases. The initial parameter tells the policy which trajectory family it is generating.
 
-## 31. Action design
+Why include progress? The agent needs to distinguish early, middle, and terminal parts of the ray. The same current state can require different behavior depending on where it is in the episode.
 
-Use a two-dimensional continuous action:
+Why include previous error? It gives the policy a short summary of how well its last action matched the physical trajectory.
+
+Normalize all observation features with scales calculated from training data only. Save those scales and reuse them unchanged for validation and test.
+
+## 15. Action design
+
+Use a continuous two-dimensional action:
 
 \[
 a_t=(a_u,a_v),\qquad a_u,a_v\in[-1,1].
 \]
 
-Map to normalized next-state ranges:
+Convert normalized actions into physical state proposals:
 
 \[
-u_{t+1}=u_{\min}+
-\frac{a_u+1}{2}(u_{\max}-u_{\min}),
+u_{t+1}=u_{\min}+\frac{a_u+1}{2}(u_{\max}-u_{\min}),
 \]
 
 \[
-v_{t+1}=v_{\min}+
-\frac{a_v+1}{2}(v_{\max}-v_{\min}).
+v_{t+1}=v_{\min}+\frac{a_v+1}{2}(v_{\max}-v_{\min}).
 \]
 
-Estimate ranges from training data with a safety margin. Freeze them before validation. An alternative experiment can predict state increments rather than absolute values, but do not mix action parameterizations in one comparison.
+The action bounds are derived from the training trajectories with a safety margin, then frozen. They must not be calculated from test trajectories.
 
-The environment must reject non-finite values and define what happens for physically invalid proposals. Do not silently clip arbitrary states into valid ones, because that can hide a poor policy.
+This first version predicts the absolute next state. That is easier to inspect than predicting a delta. Later we can compare a delta-action formulation as an ablation.
 
-## 32. Reward design
+The environment must explicitly handle:
+- non-finite action values;
+- actions outside the declared bounds;
+- negative u before the expected escape;
+- implausible v values;
+- failure to reach a valid escape by the episode horizon.
 
-Use multiple independently logged components.
+Do not silently clip a wildly invalid physical proposal into a valid state. That hides the policy's mistakes.
 
-### 32.1 Reference tracking
+---
 
-For training only, obtain the DOP853 state at the next angular coordinate:
+# PART IV — Milestone 3: Build the reward
+
+The reward must teach the agent to follow the curve while respecting the physics. We use three terms and log them separately.
+
+## 16. Reference-trajectory tracking
+
+For a training ray, the environment can query the DOP853 teacher at the next angular coordinate:
 
 \[
 s_{\rm ref}(\phi_{t+1})=
 [u_{\rm ref}(\phi_{t+1}),v_{\rm ref}(\phi_{t+1})].
 \]
 
-Normalized tracking error:
+Define:
 
 \[
 E_{\rm ref}=
-\left\|
-\frac{
-s_{t+1}-s_{\rm ref}(\phi_{t+1})
-}{
-\sigma_s
-}
-\right\|_2^2.
+\left(\frac{u_{t+1}-u_{\rm ref}}{\sigma_u}\right)^2+
+\left(\frac{v_{t+1}-v_{\rm ref}}{\sigma_v}\right)^2.
 \]
 
-This is a teacher signal. Do not put future reference values in the observation.
+The scales sigma_u and sigma_v come from the training dataset.
 
-### 32.2 ODE consistency
+This is a teacher-guided reward: reference values teach the environment how good the next point is. They are not part of the policy observation. We must state this clearly in the final research report.
 
-For h=delta_phi, define a midpoint residual:
+## 17. Differential-equation consistency
+
+A proposed transition should approximately satisfy the ODE over h=delta_phi.
+
+Using a midpoint approximation:
 
 \[
-R_u=(u_{t+1}-u_t)
--h\frac{v_t+v_{t+1}}{2},
+R_u=(u_{t+1}-u_t)-h\frac{v_t+v_{t+1}}{2},
 \]
 
 \[
@@ -1202,108 +966,189 @@ u_m=\frac{u_t+u_{t+1}}{2},
 \]
 
 \[
-R_v=(v_{t+1}-v_t)
--h\left(\frac32u_m^2-u_m\right).
+R_v=(v_{t+1}-v_t)-h\left(\frac32u_m^2-u_m\right).
 \]
 
-Then:
+Normalize the residuals:
 
 \[
 E_{\rm ODE}=
-(R_u/\sigma_u)^2+(R_v/\sigma_v)^2.
+\left(\frac{R_u}{\sigma_{R_u}}\right)^2+
+\left(\frac{R_v}{\sigma_{R_v}}\right)^2.
 \]
 
-This is a discrete consistency residual. It is not exactly zero at finite h, even on a correct numerical trajectory.
+These are discrete consistency residuals. They are not expected to be exactly zero at finite angular spacing.
 
-### 32.3 Invariant drift
+## 18. Conserved-quantity consistency
+
+At the generated point:
 
 \[
-I_t=v_t^2-u_t^3+u_t^2,
-\qquad I_0=u_0^2-u_0^3.
+I_{t+1}=v_{t+1}^2-u_{t+1}^3+u_{t+1}^2.
 \]
+
+At closest approach:
 
 \[
-E_I=(I_t-I_0)^2/\sigma_I^2.
+I_0=u_0^2-u_0^3.
 \]
 
-This measures violation of the conserved quantity.
+Define a relative invariant error:
 
-### 32.4 Combined reward
+\[
+E_I=\left(
+\frac{I_{t+1}-I_0}{|I_0|+\epsilon}
+\right)^2.
+\]
 
-A starting formula:
+The small epsilon avoids division by zero for parameter values where the invariant magnitude is very small.
+
+## 19. Combined reward
+
+Begin with:
 
 \[
 r_t=
 -\lambda_{\rm ref}E_{\rm ref}
 -\lambda_{\rm ODE}E_{\rm ODE}
--\lambda_IE_I.
+-\lambda_I E_I.
 \]
 
-Add a terminal success bonus for a valid escape. Add penalties for non-finite states, invalid outward/inward direction, or a horizon ending without a valid outcome.
+Add a terminal success bonus only when:
+- the episode reached the reference escape angle;
+- the generated state is close enough to the reference terminal state;
+- the ray is moving outward, meaning v is negative in this coordinate convention;
+- the trajectory did not previously enter an invalid state.
 
-Do not choose weights by intuition alone. First plot the distributions of each reward component on valid reference transitions and deliberately perturbed transitions. Normalize them, then tune weights on validation cases.
+Give a finite penalty for invalid actions, non-finite states, early escape, or an episode horizon failure.
 
-### 32.5 Reward ablations
+Do not choose reward weights randomly. First log the three raw error terms on reference-like transitions and deliberately perturbed transitions. Normalize them so their magnitudes are comparable, then tune weights on validation rays.
 
-Run separate experiments:
-1. reference tracking + ODE residual + invariant;
-2. ODE residual + invariant only;
-3. reference tracking only;
-4. ODE residual only.
+### Reward hacking questions
 
-This helps answer whether the policy follows the reference because it imitates the teacher or because physics constraints guide it.
+- Can the policy set u to zero at the first step and earn a terminal bonus?
+- Can it stay at one state forever?
+- Can it generate a visually bad curve but still get high reward?
+- Can NaN bypass a comparison?
+- Can the agent stop before the reference escape angle?
+- Does the terminal reward hide poor tracking over the earlier trajectory?
 
-### 32.6 Reward hacking checklist
-
-Ask:
-- Can the policy set u<=0 immediately to collect an escape bonus?
-- Can it remain at the same state forever and collect small per-step penalties?
-- Can it jump over the reference trajectory and receive a high reward?
-- Can NaN values bypass comparisons?
-- Can the agent terminate before generating a meaningful curve?
-- Does every failed attempt have a finite, well-defined penalty?
-- Is the success bonus large enough to distinguish valid completion but not so large that it hides a terrible path?
-
-Use explicit terminal conditions. A valid escape must have a physically sensible outward crossing, accumulated path quality, and an escape angle consistent with the selected trajectory.
+The answer to each must be no.
 
 ---
 
-# PART VII — Gymnasium environment
+# PART V — Milestone 4: Implement the Gymnasium environment
 
-## 33. What Gymnasium provides
+## 20. Why Gymnasium?
 
-Gymnasium standardizes the interaction between the policy and environment.
+Gymnasium defines a standard interface between an RL algorithm and an environment.
 
-The essential methods:
-- __init__: configure action and observation spaces;
-- reset(seed=None, options=None): initialize an episode and return observation plus info;
-- step(action): return observation, reward, terminated, truncated, info.
+The essential methods are:
+- __init__: configure spaces and immutable experiment parameters;
+- reset: select a training ray and initialize the generated trajectory;
+- step: apply the policy action, calculate reward, and return the next observation.
 
-terminated=True means the task reached a terminal state such as valid escape or numerical failure.
+The step method returns:
 
-truncated=True means an external limit ended the episode, such as maximum angular range or decision count.
+~~~python
+observation, reward, terminated, truncated, info
+~~~
 
-Do not confuse solver success with escape. The environment must retain explicit status.
+terminated means a task terminal event occurred, such as valid escape or invalid physical state.
 
-Install dependencies only when this milestone begins:
+truncated means an external limit ended the episode, such as maximum decisions.
+
+Install RL packages when the dataset is ready:
 
 ~~~bash
 python -m pip install gymnasium stable-baselines3 tensorboard
 ~~~
 
-## 34. Environment file layout
+## 21. Load the packed dataset
 
-Create src/lab/trajectory_env.py. It should depend on:
-- a training-trajectory dataset loader;
-- normalization and action conversion utilities;
-- reward component functions;
-- terminal/escape checks.
+The environment needs fast access to one trajectory at a time. This helper loads the packed arrays and returns the selected case slice.
 
-Keep the current physical ODE in geodesics.py. Do not duplicate the formula in several slightly different modules.
+### File: src/lab/trajectory_env.py — dataset loader
 
-## 35. Environment blueprint
+~~~python
+import numpy as np
 
-The following is a structural outline, not a complete implementation. It deliberately leaves the dataset adapter and reward calculation for the milestone where those pieces have been tested.
+
+class TrajectoryStore:
+    def __init__(self, path):
+        archive = np.load(path, allow_pickle=False)
+
+        self.r0 = archive["r0"]
+        self.phi = archive["phi"]
+        self.u = archive["u"]
+        self.v = archive["v"]
+        self.offsets = archive["offsets"]
+        self.escape_angle = archive["escape_angle"]
+        self.deflection_radian = archive["deflection_radian"]
+
+        count = len(self.r0)
+
+        if len(self.offsets) != count + 1:
+            raise ValueError("offsets must have one more entry than trajectories")
+
+        if not (
+            len(self.phi) == len(self.u) == len(self.v)
+        ):
+            raise ValueError("Packed phi, u, and v arrays must have equal lengths")
+
+    def get(self, index):
+        start = int(self.offsets[index])
+        end = int(self.offsets[index + 1])
+
+        return {
+            "r0": float(self.r0[index]),
+            "phi": self.phi[start:end],
+            "u": self.u[start:end],
+            "v": self.v[start:end],
+            "escape_angle": float(self.escape_angle[index]),
+            "deflection_radian": float(self.deflection_radian[index]),
+        }
+~~~
+
+### Explanation
+
+The constructor loads numeric arrays from NPZ. allow_pickle=False prevents arbitrary Python object deserialization and matches our packed numeric format.
+
+The offsets array has one more entry than the number of trajectories. For trajectory i, offsets[i] is the start and offsets[i+1] is the end.
+
+The loader checks the basic shape contract. Later, the comprehensive test milestone will add monotonic offsets, finite values, and valid per-trajectory lengths.
+
+get(index) returns a dictionary for one ray. This keeps the environment from manually slicing the packed arrays every time it resets.
+
+## 22. Environment state and transition
+
+The environment maintains two distinct states:
+
+1. **Reference trajectory:** the immutable DOP853 curve for the current training ray.
+2. **Generated trajectory:** the points proposed by the agent so far.
+
+The agent receives only the generated current state, initial ray parameter, progress, and previous error. It does not receive the next reference point.
+
+At reset:
+- select a training trajectory using Gymnasium's seeded random generator;
+- set the generated state to [1/r0, 0];
+- set phi to zero;
+- clear the previous error;
+- store the initial generated point.
+
+At step:
+- map the action into proposed u and v;
+- advance phi by the fixed delta_phi, stopping exactly at the reference escape angle on the last transition;
+- interpolate the teacher state at the new angle for reward only;
+- calculate tracking, ODE, and invariant error;
+- update the generated state;
+- decide whether the ray escaped, failed, or reached the decision limit.
+
+## 23. Complete environment implementation
+
+The following is a first complete implementation blueprint. The reward weights and action bounds are experiment configuration, not universal constants. The bounds here are intentionally calculated from the training dataset and supplied to the environment.
+
+### File: src/lab/trajectory_env.py — environment
 
 ~~~python
 import gymnasium as gym
@@ -1316,167 +1161,396 @@ class PhotonTrajectoryEnv(gym.Env):
 
     def __init__(
         self,
-        training_cases,
-        delta_phi,
-        observation_low,
-        observation_high,
-        action_u_range,
-        action_v_range,
-        max_decisions=20000,
+        store,
+        training_indices,
+        delta_phi=0.01,
+        action_u_bounds=(0.0, 0.6),
+        action_v_bounds=(-0.6, 0.05),
+        max_decisions=5000,
+        reward_weights=(1.0, 0.05, 0.05),
+        terminal_bonus=2.0,
+        failure_penalty=2.0,
     ):
         super().__init__()
 
-        self.training_cases = training_cases
+        self.store = store
+        self.training_indices = np.asarray(training_indices, dtype=int)
+
+        if len(self.training_indices) == 0:
+            raise ValueError("At least one training trajectory is required")
+
         self.delta_phi = float(delta_phi)
-        self.action_u_range = tuple(action_u_range)
-        self.action_v_range = tuple(action_v_range)
+        self.u_bounds = tuple(action_u_bounds)
+        self.v_bounds = tuple(action_v_bounds)
         self.max_decisions = int(max_decisions)
+
+        self.w_ref, self.w_ode, self.w_inv = reward_weights
+        self.terminal_bonus = float(terminal_bonus)
+        self.failure_penalty = float(failure_penalty)
+
+        if self.delta_phi <= 0:
+            raise ValueError("delta_phi must be positive")
+
+        if not self.u_bounds[0] < self.u_bounds[1]:
+            raise ValueError("Invalid u action bounds")
+
+        if not self.v_bounds[0] < self.v_bounds[1]:
+            raise ValueError("Invalid v action bounds")
 
         self.action_space = spaces.Box(
             low=np.array([-1.0, -1.0], dtype=np.float32),
             high=np.array([1.0, 1.0], dtype=np.float32),
             dtype=np.float32,
         )
+
+        # We normalize physical state variables before returning observations.
+        # Infinite Box limits avoid falsely declaring a narrow physical range.
         self.observation_space = spaces.Box(
-            low=np.asarray(observation_low, dtype=np.float32),
-            high=np.asarray(observation_high, dtype=np.float32),
+            low=-np.inf,
+            high=np.inf,
+            shape=(5,),
             dtype=np.float32,
         )
 
-        self.state = None
-        self.phi = 0.0
-        self.r0 = None
         self.case = None
+        self.r0 = None
+        self.u0 = None
+        self.phi = 0.0
+        self.state = None
         self.previous_error = 0.0
         self.decision_count = 0
+        self.generated_phi = []
         self.generated_states = []
+        self.done = False
+
+        self.u_scale = max(
+            float(np.std(store.u)),
+            1e-6,
+        )
+        self.v_scale = max(
+            float(np.std(store.v)),
+            1e-6,
+        )
+
+    def _observation(self):
+        u, v = self.state
+
+        progress = self.phi / max(self.case["escape_angle"], 1e-8)
+        progress = float(np.clip(progress, 0.0, 1.0))
+
+        observation = np.array(
+            [
+                self.u0 / self.u_scale,
+                u / self.u_scale,
+                v / self.v_scale,
+                progress,
+                np.log10(self.previous_error + 1e-8),
+            ],
+            dtype=np.float32,
+        )
+
+        return observation
+
+    def _action_to_state(self, action):
+        action = np.asarray(action, dtype=np.float64)
+
+        if action.shape != (2,) or not np.all(np.isfinite(action)):
+            raise ValueError("Action must contain two finite values")
+
+        action = np.clip(action, -1.0, 1.0)
+
+        u = self.u_bounds[0] + 0.5 * (action[0] + 1.0) * (
+            self.u_bounds[1] - self.u_bounds[0]
+        )
+
+        v = self.v_bounds[0] + 0.5 * (action[1] + 1.0) * (
+            self.v_bounds[1] - self.v_bounds[0]
+        )
+
+        return np.array([u, v], dtype=np.float64)
+
+    @staticmethod
+    def _invariant(state):
+        u, v = state
+        return v**2 - u**3 + u**2
+
+    def _reward_components(self, proposed_state, next_phi, step):
+        target_u = np.interp(
+            next_phi,
+            self.case["phi"],
+            self.case["u"],
+        )
+        target_v = np.interp(
+            next_phi,
+            self.case["phi"],
+            self.case["v"],
+        )
+        target = np.array([target_u, target_v])
+
+        tracking_error = np.array([
+            (proposed_state[0] - target[0]) / self.u_scale,
+            (proposed_state[1] - target[1]) / self.v_scale,
+        ])
+        e_ref = float(np.mean(tracking_error**2))
+
+        old_u, old_v = self.state
+        new_u, new_v = proposed_state
+
+        midpoint_u = 0.5 * (old_u + new_u)
+
+        residual_u = (new_u - old_u) - step * 0.5 * (old_v + new_v)
+        residual_v = (
+            (new_v - old_v)
+            - step * (1.5 * midpoint_u**2 - midpoint_u)
+        )
+
+        scale_u = max(step * self.v_scale, 1e-7)
+        rhs_scale = max(
+            float(np.std(1.5 * self.store.u**2 - self.store.u)),
+            1e-6,
+        )
+        scale_v = max(step * rhs_scale, 1e-7)
+
+        e_ode = float(
+            0.5 * (
+                (residual_u / scale_u) ** 2
+                + (residual_v / scale_v) ** 2
+            )
+        )
+
+        initial_invariant = self.u0**2 - self.u0**3
+        new_invariant = self._invariant(proposed_state)
+        relative_drift = (
+            (new_invariant - initial_invariant)
+            / (abs(initial_invariant) + 1e-8)
+        )
+        e_invariant = float(relative_drift**2)
+
+        return {
+            "reference": e_ref,
+            "ode": e_ode,
+            "invariant": e_invariant,
+            "target_state": target,
+        }
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
-        # Select only from training cases, using the seeded RNG.
-        index = int(self.np_random.integers(len(self.training_cases)))
-        self.case = self.training_cases[index]
-        self.r0 = float(self.case["r0"])
+        selected = int(
+            self.np_random.choice(self.training_indices)
+        )
+        self.case = self.store.get(selected)
 
-        self.state = np.array([1.0 / self.r0, 0.0], dtype=np.float64)
+        self.r0 = self.case["r0"]
+        self.u0 = 1.0 / self.r0
+
         self.phi = 0.0
+        self.state = np.array([self.u0, 0.0], dtype=np.float64)
         self.previous_error = 0.0
         self.decision_count = 0
-        self.generated_states = [(self.phi, self.state.copy())]
 
-        obs = self._observation()
-        if not self.observation_space.contains(obs):
-            raise RuntimeError("Reset observation is outside observation_space")
+        self.generated_phi = [self.phi]
+        self.generated_states = [self.state.copy()]
+        self.done = False
 
-        return obs, {"r0": self.r0}
-
-    def _observation(self):
-        u, v = self.state
-        # Apply the frozen training-set normalizer here.
-        return self.normalizer.transform(
-            [self.case["u0"], u, v, self.phi, self.previous_error]
-        ).astype(np.float32)
+        return self._observation(), {
+            "case_index": selected,
+            "r0": self.r0,
+            "escape_angle": self.case["escape_angle"],
+        }
 
     def step(self, action):
-        raise NotImplementedError(
-            "Implement action mapping, reward, and terminal checks after tests."
+        if self.done:
+            raise RuntimeError("Episode is finished. Call reset() before step().")
+
+        try:
+            proposed_state = self._action_to_state(action)
+        except ValueError:
+            self.done = True
+            return (
+                self._observation(),
+                -self.failure_penalty,
+                True,
+                False,
+                {"termination_reason": "invalid_action"},
+            )
+
+        escape_angle = self.case["escape_angle"]
+        next_phi = min(self.phi + self.delta_phi, escape_angle)
+        actual_step = next_phi - self.phi
+
+        components = self._reward_components(
+            proposed_state,
+            next_phi,
+            actual_step,
+        )
+
+        reward = (
+            -self.w_ref * components["reference"]
+            -self.w_ode * components["ode"]
+            -self.w_inv * components["invariant"]
+        )
+
+        finite = np.all(np.isfinite(proposed_state))
+        nonnegative_radius_coordinate = proposed_state[0] >= 0.0
+        not_early_escape = not (
+            proposed_state[0] <= 0.0
+            and next_phi < escape_angle
+        )
+
+        valid = finite and nonnegative_radius_coordinate and not_early_escape
+
+        self.decision_count += 1
+
+        if not valid:
+            reward -= self.failure_penalty
+            self.done = True
+
+            info = {
+                "termination_reason": "invalid_trajectory_state",
+                "reward_reference": components["reference"],
+                "reward_ode": components["ode"],
+                "reward_invariant": components["invariant"],
+                "decision_count": self.decision_count,
+            }
+
+            return self._observation(), float(reward), True, False, info
+
+        self.phi = next_phi
+        self.state = proposed_state
+        self.previous_error = components["reference"]
+
+        self.generated_phi.append(self.phi)
+        self.generated_states.append(self.state.copy())
+
+        reached_reference_end = self.phi >= escape_angle - 1e-12
+
+        if reached_reference_end:
+            final_error = components["reference"]
+            outward = self.state[1] < 0.0
+            close_to_escape = self.state[0] <= max(1e-5, self.u_scale * 0.05)
+
+            success = (
+                final_error < 0.05
+                and outward
+                and close_to_escape
+            )
+
+            if success:
+                reward += self.terminal_bonus
+                reason = "successful_escape"
+            else:
+                reward -= self.failure_penalty
+                reason = "poor_terminal_prediction"
+
+            self.done = True
+            terminated = True
+            truncated = False
+
+        elif self.decision_count >= self.max_decisions:
+            reward -= self.failure_penalty
+            self.done = True
+            reason = "decision_limit"
+            terminated = False
+            truncated = True
+        else:
+            reason = "continuing"
+            terminated = False
+            truncated = False
+
+        info = {
+            "r0": self.r0,
+            "phi": self.phi,
+            "proposed_u": float(self.state[0]),
+            "proposed_v": float(self.state[1]),
+            "reward_reference": components["reference"],
+            "reward_ode": components["ode"],
+            "reward_invariant": components["invariant"],
+            "decision_count": self.decision_count,
+            "termination_reason": reason,
+            "escape_angle": escape_angle if terminated else None,
+        }
+
+        return (
+            self._observation(),
+            float(reward),
+            terminated,
+            truncated,
+            info,
         )
 ~~~
 
-Before using this outline:
-- implement and test self.normalizer;
-- validate training_cases is non-empty;
-- check all actions are finite;
-- verify observation bounds against actual rollouts;
-- implement next-state action conversion;
-- implement reward terms separately;
-- implement valid escape and horizon conditions.
+### Important implementation notes
 
-The reference state may be queried inside reward calculation, but it must not be copied into the policy observation.
+This blueprint shows the whole environment data flow, but it must be reviewed against real dataset ranges before serious training.
 
-## 36. Transition logic
+**TrajectoryStore**
 
-At each step:
-1. validate action shape and finiteness;
-2. clip only to the declared action bounds;
-3. map action coordinates to proposed u_next and v_next;
-4. set phi_next=phi+delta_phi;
-5. query the training reference at phi_next if inside its valid interval;
-6. calculate E_ref, E_ODE, and E_I;
-7. check numerical and physical validity;
-8. calculate finite reward;
-9. store the point in the generated path;
-10. update state only according to the documented transition;
-11. detect escape, failure, or truncation;
-12. return the five Gymnasium outputs.
+It loads the packed arrays from the dataset. This object is not a Gymnasium environment; it only retrieves the teacher trajectory for a chosen case.
 
-The environment's info dictionary should expose:
-- r0;
-- phi;
-- proposed u and v;
-- reference u and v used for reward;
-- each reward component;
-- accumulated reward;
-- valid/invalid status;
-- termination reason;
-- escape angle, where defined.
+**Action space**
 
-Rejected or invalid proposals still consume a decision and must receive a penalty. Do not let the agent avoid cost by retrying for free.
+The policy outputs two normalized numbers in [-1,1]. _action_to_state converts those numbers into u and v using frozen physical bounds. This means the neural policy never has to output values with completely different numerical scales directly.
 
-## 37. Environment tests and checker
+**Observation**
 
-Test:
-- reset reproducibility under a fixed seed;
-- initial state equals [1/r0, 0];
-- observation belongs to observation_space;
-- action shape and range are handled correctly;
-- non-finite actions/states never receive success reward;
-- phi advances by exactly delta_phi;
-- generated points are stored in order;
-- a better reference-tracking proposal receives a better tracking term;
-- ODE residual is smaller for a physically consistent transition;
-- invariant error uses the correct I0;
-- escape requires a valid outward crossing;
-- horizon exhaustion is truncation, not success;
-- reset works after a terminal episode.
+The environment returns normalized initial u0, current u, current v, normalized angular progress, and log previous error. The teacher's next u and v are deliberately not exposed to the policy.
 
-Use the Gymnasium environment checker before training. Do not start PPO against an incomplete environment.
+**Reward calculation**
+
+_reward_components is separate so each term can be inspected:
+- reference: closeness to the teacher's next state;
+- ode: whether the transition approximately follows the differential equation;
+- invariant: whether the conserved quantity remains stable.
+
+The reward uses negative weighted errors. Better trajectory predictions should receive less negative reward.
+
+**Fixed angular increment**
+
+The environment advances phi by delta_phi, except the final interval can be shorter so that the episode ends exactly at the reference escape angle. The agent does not control this increment.
+
+**Terminal logic**
+
+Reaching the reference angular endpoint alone is not success. The generated state must also be close to the terminal reference state and have the correct outward direction.
+
+**Important first-run limitation**
+
+The example's initial action bounds and reward scales are starting values. We must inspect the actual training data, verify the observation range, and tune reward weights with validation trajectories. The first implementation should log every reward component. Do not judge the agent only by total reward.
 
 ---
 
-# PART VIII — Reinforcement learning concepts and PPO
+# PART VI — Milestone 5: Train the RL policy
 
-## 38. From supervised learning to RL
+## 24. Why PPO first?
 
-In supervised learning, a model sees labelled pairs and reduces prediction loss.
+The main research goal is RL. PPO is simply the first algorithm we will try because it supports continuous bounded actions and has a practical implementation in Stable-Baselines3.
 
-In RL, the agent interacts with an environment:
-- it observes a state;
-- selects an action;
-- receives a reward;
-- transitions to a new state;
-- updates its policy to improve expected cumulative reward.
+PPO has:
+- an actor policy that chooses an action distribution;
+- a critic that estimates expected future return;
+- an objective that discourages excessively large policy updates.
 
-Our policy outputs two continuous action values representing the next normalized u and v.
+For our environment, the actor outputs a distribution over two continuous values: the proposed next u and v.
 
-## 39. Policy, actor, and critic
+PPO is not guaranteed to be best. Once the first RL pipeline works, we can compare SAC. Do not spend the first iteration implementing multiple algorithms before one complete agent can generate a curve.
 
-A policy is written:
+## 25. Understand the PPO terms we will monitor
+
+The policy is:
 
 \[
 \pi_\theta(a\mid s).
 \]
 
-It describes the action distribution for observation s.
+It maps an observation to an action distribution.
 
-PPO commonly uses:
-- **Actor:** produces the action distribution.
-- **Critic:** estimates expected future return V(s).
+The critic estimates:
 
-For continuous actions, the actor often outputs the parameters of a Gaussian distribution. During training actions are sampled; evaluation often uses the deterministic mean action.
+\[
+V_\phi(s),
+\]
 
-## 40. Return and discounting
+the expected future return from state s.
 
 The discounted return is:
 
@@ -1484,31 +1558,13 @@ The discounted return is:
 G_t=\sum_{k=0}^{T-t}\gamma^k r_{t+k}.
 \]
 
-Gamma controls how much future rewards matter. A trajectory needs long-term consistency: a locally good point can lead to a poor later curve. This is why cumulative return matters.
-
-## 41. Advantage and GAE
-
-Advantage estimates whether an action did better or worse than expected:
+The advantage estimates whether an action performed better or worse than the critic expected:
 
 \[
 A_t=Q(s_t,a_t)-V(s_t).
 \]
 
-Generalized Advantage Estimation combines multi-step temporal-difference residuals:
-
-\[
-\delta_t=r_t+\gamma V(s_{t+1})-V(s_t),
-\]
-
-\[
-\hat A_t=\sum_{l=0}^{\infty}(\gamma\lambda)^l\delta_{t+l}.
-\]
-
-Lambda controls the bias/variance trade-off.
-
-## 42. PPO clipped objective
-
-Define the probability ratio:
+PPO uses the probability ratio:
 
 \[
 r_t(\theta)=
@@ -1516,39 +1572,98 @@ r_t(\theta)=
 {\pi_{\theta_{\rm old}}(a_t\mid s_t)}.
 \]
 
-The clipped objective is:
+Its clipped policy objective is:
 
 \[
 L^{\rm CLIP}(\theta)=
 \mathbb E_t\left[
 \min\left(
-r_t(\theta)\hat A_t,
-\operatorname{clip}(r_t(\theta),1-\epsilon,1+\epsilon)\hat A_t
+r_t(\theta)A_t,
+\operatorname{clip}(r_t(\theta),1-\epsilon,1+\epsilon)A_t
 \right)
 \right].
 \]
 
-Clipping discourages excessively large policy updates. You do not need to implement PPO from scratch initially, but you should understand what the library optimizes.
+The clipping discourages excessively large policy updates. We will use the library implementation, but we should understand that PPO optimizes expected reward, not the physical curve error directly. That is why evaluation must measure the generated trajectories.
 
-## 43. First training script
+## 26. Split dataset by ray before training
 
-After the environment passes tests, create scripts/train_rl.py.
+Never randomly split individual points from one trajectory between training and test. Adjacent points from the same ray are extremely similar and would leak information.
 
-A first PPO smoke test using Stable-Baselines3:
+Split by r0 / case ID:
+
+- training cases: used for RL updates;
+- validation cases: used for reward and hyperparameter decisions;
+- test cases: untouched until final evaluation.
+
+The policy should train on a broad range of r0 values, but test on values that were not used for gradient updates.
+
+Create a split manifest and save the exact case indices. Use the same split for each model comparison later.
+
+## 27. Environment factory
+
+Create a small factory so training and evaluation construct the same environment configuration.
+
+### File: src/lab/trajectory_env.py — factory
 
 ~~~python
+import json
+from pathlib import Path
+
+import numpy as np
+
+from lab.trajectory_env import PhotonTrajectoryEnv, TrajectoryStore
+
+
+def load_split(path):
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+
+    return (
+        np.asarray(payload["train_indices"], dtype=int),
+        np.asarray(payload["validation_indices"], dtype=int),
+        np.asarray(payload["test_indices"], dtype=int),
+    )
+
+
+def make_training_env(
+    dataset_path="data/photon_trajectories.npz",
+    split_path="data/split_manifest.json",
+    seed=7,
+):
+    store = TrajectoryStore(dataset_path)
+    train_indices, _, _ = load_split(split_path)
+
+    env = PhotonTrajectoryEnv(
+        store=store,
+        training_indices=train_indices,
+        delta_phi=0.01,
+    )
+    env.reset(seed=seed)
+
+    return env
+~~~
+
+This example shows the intended factory responsibilities. In the final source tree, keep the factory inside the same trajectory_env.py module rather than importing the module from itself. The snippet is separated here to explain the boundary: data loading and split selection happen once; episode sampling happens inside the environment.
+
+## 28. Training script
+
+### File: scripts/train_rl.py
+
+~~~python
+import json
 from pathlib import Path
 
 from stable_baselines3 import PPO
-from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.callbacks import CheckpointCallback
 
 from lab.trajectory_env import make_training_env
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LOG_DIR = ROOT / "outputs" / "rl_logs"
-MODEL_DIR = ROOT / "outputs" / "models"
+OUTPUTS = ROOT / "outputs"
+LOG_DIR = OUTPUTS / "rl_logs"
+MODEL_DIR = OUTPUTS / "models"
 
 
 def main():
@@ -1556,25 +1671,54 @@ def main():
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
     env = make_training_env(seed=7)
-    check_env(env)
     env = Monitor(env)
 
+    checkpoint = CheckpointCallback(
+        save_freq=10_000,
+        save_path=str(MODEL_DIR),
+        name_prefix="ppo_photon_trajectory",
+    )
+
     model = PPO(
-        "MlpPolicy",
-        env,
+        policy="MlpPolicy",
+        env=env,
         learning_rate=3e-4,
         n_steps=1024,
         batch_size=64,
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
+        ent_coef=0.0,
         verbose=1,
         tensorboard_log=str(LOG_DIR),
         seed=7,
     )
 
-    # Smoke test only. It is not a scientific training budget.
-    model.learn(total_timesteps=5000)
+    configuration = {
+        "algorithm": "PPO",
+        "seed": 7,
+        "total_timesteps": 100_000,
+        "observation": [
+            "normalized_u0",
+            "normalized_current_u",
+            "normalized_current_v",
+            "angular_progress",
+            "log_previous_tracking_error",
+        ],
+        "action": ["normalized_next_u", "normalized_next_v"],
+        "delta_phi": 0.01,
+    }
+
+    (OUTPUTS / "ppo_config.json").write_text(
+        json.dumps(configuration, indent=2),
+        encoding="utf-8",
+    )
+
+    model.learn(
+        total_timesteps=configuration["total_timesteps"],
+        callback=checkpoint,
+    )
+
     model.save(MODEL_DIR / "ppo_photon_trajectory")
 
 
@@ -1582,170 +1726,431 @@ if __name__ == "__main__":
     main()
 ~~~
 
-The factory make_training_env is a project function to implement; this script is not runnable until the dataset loader and environment are complete.
+### Code walkthrough
 
-Run TensorBoard:
+**Path configuration**
+
+Path(__file__).resolve().parents[1] finds the repository root relative to this script. This avoids depending on whichever terminal directory happens to be active.
+
+**Environment construction**
+
+make_training_env loads the trajectory dataset and selects only training case IDs. Monitor wraps the environment so Stable-Baselines3 can record episode returns and lengths.
+
+**CheckpointCallback**
+
+Training can take a long time. The callback periodically saves intermediate models. If a later run fails, we do not lose every earlier checkpoint.
+
+**PPO configuration**
+
+- MlpPolicy uses a multilayer perceptron for the actor and critic.
+- learning_rate controls optimizer step size.
+- n_steps controls rollout collection before an update.
+- batch_size controls minibatch size.
+- gamma discounts future rewards.
+- gae_lambda controls generalized advantage estimation.
+- clip_range controls PPO's clipped update objective.
+- seed makes the run more reproducible.
+
+These are starting hyperparameters, not magic values.
+
+**Configuration file**
+
+The JSON stores the action and observation meanings alongside the algorithm settings. A saved neural-network checkpoint without its environment definition is not a reproducible experiment.
+
+### First run
+
+Start with a short smoke run by temporarily setting total_timesteps to 5,000. This checks that rollouts, rewards, saving, and logging work. It is not the final training budget.
+
+Run:
+
+~~~bash
+python -m scripts.train_rl
+~~~
+
+TensorBoard:
 
 ~~~bash
 tensorboard --logdir outputs/rl_logs
 ~~~
 
-A 5,000-step run verifies basic execution only. Inspect:
+Inspect:
 - episode reward;
-- each reward component separately;
 - episode length;
+- reward components;
 - valid escape rate;
-- invalid-state rate;
-- reference tracking error;
-- ODE residual;
-- invariant drift;
-- rendered generated curves.
+- failure reasons;
+- action distribution;
+- whether the generated paths become closer to the reference.
 
-If reward rises while actual curve error becomes worse, the reward is misweighted or exploitable. Stop and diagnose; do not merely train longer.
+A rising PPO reward is not proof that the light curve is correct.
 
-## 44. PPO is an algorithm, not the project goal
+## 29. First visual rollout
 
-The research objective is RL trajectory generation. PPO is the first algorithm because it supports continuous bounded actions and has a mature implementation. Later, compare an off-policy method such as SAC if the environment is stable and the comparison is justified.
+Before increasing training time, load the saved model and let it generate trajectories for several training and validation rays.
 
-Do not train several RL algorithms before the environment is validated. A different algorithm cannot repair incorrect reward or transition logic.
+The evaluation script should:
+1. reset the environment for a selected case;
+2. repeatedly call model.predict(observation, deterministic=True);
+3. collect generated phi, u, and v from the environment;
+4. stop when terminated or truncated;
+5. convert u to Cartesian coordinates;
+6. plot generated and reference paths on the same axes.
 
----
+The environment should expose a method or info field for the generated path. Do not reconstruct it from printed logs.
 
-# PART IX — Evaluation and controlled experiments
+What we want to see:
+- the generated path begins at the correct closest-approach point;
+- it bends in the correct direction;
+- it does not jump to negative u early;
+- it approaches the escape point at the right angular coordinate;
+- its mirrored curve looks physically plausible.
 
-## 45. Held-out initial conditions
-
-Split by complete ray cases, not by individual trajectory points.
-
-- **Train:** used for policy updates and training-only normalization.
-- **Validation:** used for reward weights, model selection, and hyperparameters.
-- **Test:** used only for final evaluation.
-
-Include weak, moderate, and strong deflection cases. Test unseen r0 values inside the training range, near its boundaries, and eventually closer to the photon sphere after the training domain has been expanded safely.
-
-Near-critical values can require very long trajectories. Unresolved integration at max_angle is not proof of capture.
-
-## 46. Metrics
-
-For every held-out trajectory, record:
-
-| Metric | Definition |
-|---|---|
-| u error | Difference in inverse radius on a common angular grid |
-| v error | Difference in derivative state |
-| Cartesian curve error | Difference in x/y after consistent masking |
-| escape-angle error | Absolute difference in escape angle |
-| deflection error | Absolute difference in bending angle |
-| ODE residual | Local differential-equation consistency |
-| invariant drift | Change in the conserved quantity |
-| escape success | Whether a valid outward escape was generated |
-| rollout length | Number of agent decisions |
-| runtime | End-to-end evaluation time |
-
-Use the same angular grid or interpolate over the common valid interval. Never compare arrays of different lengths by their indices.
-
-Report mean, median, standard deviation, and worst-case errors where appropriate. Keep raw per-ray outputs. Do not hide failed rays by reporting only successful cases.
-
-## 47. Visual evaluation
-
-For each test case:
-- draw the DOP853 reference;
-- draw the generated RL path;
-- use identical Cartesian axes and radius masks;
-- draw the event horizon;
-- include r0 and deflection in the title/legend;
-- show an error plot below or beside the curve.
-
-A visually convincing curve can still have a poor escape angle. Visual and numerical evaluation are both necessary.
-
-## 48. Generalization and multiple seeds
-
-Run multiple random seeds. Do not publish only the best run.
-
-Generalization should test:
-- unseen r0 values within the training range;
-- cases near the boundaries of that range;
-- near-critical scattering rays after extending the training data;
-- a broader domain only after the model works on the initial domain.
-
-Do not treat captured trajectories as part of the first experiment. They need a distinct incoming-ray initialization and terminal condition.
-
-## 49. Ablation experiments
-
-Change one design choice at a time:
-- teacher-tracking reward versus physics-only reward;
-- with versus without invariant penalty;
-- with versus without initial u0 in the observation;
-- absolute-state action versus increment action;
-- different fixed angular increments;
-- PPO versus SAC;
-- RL versus supervised MLP;
-- PINN versus data-only MLP.
-
-Ablations explain what the policy learned. Do not change multiple ingredients at once and attribute the final difference to one of them.
-
-## 50. Fair comparison
-
-Compare:
-1. DOP853 reference;
-2. fixed-step RK4 at documented h;
-3. supervised trajectory MLP;
-4. RL sequential trajectory generator;
-5. PINN, once implemented.
-
-Use identical held-out r0 cases and the same evaluation metrics. DOP853 is the reference for measuring error; it can also be reported as a numerical method, but be clear about which role it plays.
-
-The supervised MLP is especially important. If it predicts full curves more accurately and efficiently than RL, the result tells us that the deterministic mapping is better suited to supervised learning. That is not a failure of the project.
+If it does not, inspect the per-step reward terms and action outputs. Do not simply add more training steps.
 
 ---
 
-# PART X — Optional research extensions
+# PART VII — Milestone 6: Evaluate the RL-generated curves
 
-## 51. Captured photon trajectories
+## 30. What counts as a good generated curve?
 
-After scattering-ray generation works, extend the simulator to incoming rays initialized at a large radius using impact parameter. Define and test the incoming boundary conditions carefully. Add separate capture and escape termination conditions.
+A good curve must be correct numerically and physically, not merely attractive in a plot.
 
-Do not classify a trajectory as captured just because it did not escape before a time limit.
+For every ray, compare the generated state with DOP853 on a common angular grid.
 
-## 52. PINN comparison
+### State errors
 
-The PINN section above can be expanded into a full implementation after the RL and supervised baselines exist. Evaluate its ODE residual and, more importantly, its held-out trajectory and deflection errors.
+\[
+E_u=\max_\phi|u_{\rm agent}(\phi)-u_{\rm ref}(\phi)|,
+\]
 
-## 53. Adaptive sampling
+\[
+E_v=\max_\phi|v_{\rm agent}(\phi)-v_{\rm ref}(\phi)|.
+\]
 
-A later controlled experiment can compare:
-- adding training rays near large model errors;
-- adding the same number of randomly selected rays.
+### Terminal errors
 
-Keep a final test set untouched. This is an active-learning/data-acquisition experiment, not part of the first RL milestone.
+\[
+E_\phi=
+|\phi_{\rm escape,agent}-\phi_{\rm escape,ref}|,
+\]
 
-## 54. Adaptive numerical integration
+\[
+E_\alpha=
+|\alpha_{\rm agent}-\alpha_{\rm ref}|.
+\]
 
-The earlier step-size-control research can remain a numerical-analysis experiment:
-- RK4 step-doubling;
-- normalized local error;
-- accepted/rejected counts;
-- conventional h controller.
+Since alpha = 2 phi_escape - pi:
 
-It is no longer the main RL objective. Do it only if it improves reference quality or provides a useful numerical baseline.
+\[
+E_\alpha=2E_\phi
+\]
+
+when both are computed consistently.
+
+### Physics diagnostics
+
+Record the maximum ODE residual and the maximum invariant drift along the generated path.
+
+### Operational diagnostics
+
+Record:
+- valid escape rate;
+- episode length;
+- invalid-state count;
+- average reward components;
+- runtime per ray.
+
+## 31. Visual comparison
+
+For each test ray:
+- draw the DOP853 curve;
+- draw the agent-generated curve;
+- use identical axes and plotting masks;
+- mark the event horizon and photon sphere;
+- put r0 and deflection angle in the legend;
+- add a second plot showing u and v error over phi.
+
+Do not compare trajectories by array index if their lengths differ. Interpolate on the common valid angular interval.
+
+## 32. Held-out generalization
+
+The final test must use r0 values never used for training or validation.
+
+Test:
+- unseen r0 values inside the training interval;
+- values near the training boundaries;
+- a separate near-critical set after expanding the data range.
+
+Do not tune reward weights or normalization based on test performance. The test set is for the final report.
+
+## 33. Multiple seeds
+
+Run at least several independent training seeds after the first complete pipeline works. Report mean and variation across seeds, not only the best model.
+
+Keep:
+- dataset manifest;
+- train/validation/test split;
+- model configuration;
+- training seed;
+- checkpoint;
+- per-ray metrics;
+- rendered output curves.
 
 ---
 
-# PART XI — Engineering, environment, and reproducibility
+# PART VIII — Milestone 7: Comprehensive tests (now, after the RL pipeline exists)
 
-## 55. Packaging detail in the current repository
+The comprehensive tests are intentionally placed after the first dataset, environment, and training pipeline. During earlier implementation, use small smoke checks to catch obvious errors. At this milestone, formalize the behavior and failure cases across the whole system.
 
-The inspected repository currently contains a file named **project.toml**. Python packaging tools expect **pyproject.toml**. The earlier guides sometimes assumed the latter without confirming the rename. Before relying on editable installation, check the actual checkout and, if it is still project.toml, rename it:
+## 34. Physics and reference tests
+
+Test:
+- normal scattering rays escape;
+- short max_angle runs are not mislabeled as escaped;
+- invalid r0 is rejected;
+- deflection equals 2*escape_angle-pi;
+- dense reference returns both u and v;
+- dense reference rejects queries outside its interval;
+- the conserved quantity remains approximately constant on reference trajectories.
+
+## 35. Dataset tests
+
+Test:
+- same configuration and seed generate the same r0 cases;
+- offsets has length number_of_trajectories plus one;
+- offsets is monotonically increasing;
+- phi, u, and v packed arrays have equal length;
+- each trajectory begins at [1/r0, 0];
+- phi is strictly increasing within each trajectory;
+- the last phi equals the escape angle;
+- final u is close to zero;
+- all stored states are finite;
+- unresolved cases are not present as complete training trajectories;
+- the JSON manifest matches the NPZ contents.
+
+## 36. Environment tests
+
+Test:
+- reset with the same seed chooses the same training case;
+- initial observation has the declared shape and dtype;
+- observation contains no NaN or infinity;
+- action shape and bounds are handled;
+- policy observation does not include future reference state;
+- phi advances by the fixed increment;
+- final increment is clipped to the escape angle;
+- invalid proposals cannot earn terminal success;
+- terminal success requires good final tracking and outward direction;
+- horizon exhaustion truncates;
+- step after episode completion is rejected;
+- reward and info fields are finite and present.
+
+## 37. RL pipeline smoke tests
+
+Test:
+- environment factory selects only training indices;
+- one short PPO rollout can be collected;
+- model checkpoint is written;
+- model can be reloaded;
+- deterministic prediction has correct action shape;
+- evaluation stops on termination/truncation;
+- generated path arrays have matching lengths;
+- plotting does not crash on the escape endpoint.
+
+## 38. Run the tests
+
+~~~bash
+python -m pytest -q
+~~~
+
+Use separate tests for physics, data, environment, and training integration. Do not make the entire RL training budget part of the normal fast test suite. Use a short smoke test or marked integration test for the training pipeline.
+
+---
+
+# PART IX — Only after RL works: comparison models and physics extensions
+
+These are supporting experiments. Do not start all of them before the RL agent can produce and evaluate curves.
+
+## 39. Supervised trajectory MLP
+
+The supervised baseline predicts the state directly:
+
+\[
+(\phi,r_0)\longrightarrow(u,v).
+\]
+
+It sees labelled reference pairs during training and does not need to roll out one state at a time.
+
+A simple network:
+
+~~~python
+import torch
+from torch import nn
+
+
+class TrajectoryMLP(nn.Module):
+    def __init__(self, width=128):
+        super().__init__()
+
+        self.network = nn.Sequential(
+            nn.Linear(2, width),
+            nn.Tanh(),
+            nn.Linear(width, width),
+            nn.Tanh(),
+            nn.Linear(width, width),
+            nn.Tanh(),
+            nn.Linear(width, 2),
+        )
+
+    def forward(self, inputs):
+        return self.network(inputs)
+~~~
+
+### Walkthrough
+
+The input has two features: angular coordinate phi and closest approach r0. The output has two features: u and v.
+
+Tanh is smooth and bounded, which is often useful for smooth function approximation. It is not guaranteed to be the best activation.
+
+Normalize inputs and targets using training-set statistics only. Train with a weighted MSE, select checkpoints using validation loss, then calculate test metrics once.
+
+The comparison is important: supervised learning may be more efficient than RL for this deterministic mapping. If so, report it honestly.
+
+## 40. Physics-Informed Neural Network
+
+A PINN approximates a continuous function:
+
+\[
+u_\theta(\phi,r_0).
+\]
+
+Its differential-equation residual is:
+
+\[
+\mathcal R_\theta=
+\frac{\partial^2u_\theta}{\partial\phi^2}
++u_\theta-\frac32u_\theta^2.
+\]
+
+The physics loss:
+
+\[
+L_f=\mathbb E[\mathcal R_\theta^2].
+\]
+
+Initial-condition losses:
+
+\[
+L_0=\mathbb E[
+(u_\theta(0,r_0)-1/r_0)^2
+],
+\]
+
+\[
+L_1=\mathbb E[
+(\partial_\phi u_\theta(0,r_0))^2
+].
+\]
+
+The total loss:
+
+\[
+L=L_f+\lambda_0L_0+\lambda_1L_1.
+\]
+
+The ODE alone does not select a unique trajectory. The initial conditions must be enforced.
+
+### Autograd second-derivative check
+
+~~~python
+import torch
+
+x = torch.tensor([[0.2], [0.5], [0.8]], requires_grad=True)
+y = x**3
+
+dy = torch.autograd.grad(
+    y.sum(),
+    x,
+    create_graph=True,
+)[0]
+
+d2y = torch.autograd.grad(
+    dy.sum(),
+    x,
+)[0]
+
+expected = 6.0 * x.detach()
+assert torch.allclose(d2y, expected, atol=1e-5)
+~~~
+
+The example uses f(x)=x³, whose second derivative is 6x. create_graph=True ensures that the first derivative remains differentiable so we can calculate the second derivative.
+
+The PINN branch should use the same ray-level split and held-out metrics as the RL and MLP models. A small physics residual does not automatically mean a correct trajectory; check curve and deflection errors.
+
+## 41. Weak-field comparison
+
+For a Schwarzschild turning point r0, the dimensionless impact parameter is:
+
+\[
+\bar b=\frac{b}{r_s}
+=\frac{r_0}{\sqrt{1-1/r_0}}.
+\]
+
+In the weak field:
+
+\[
+\alpha\approx\frac{2}{\bar b}.
+\]
+
+This leading-order approximation should work better far from the black hole and degrade in the strong-field regime. It is a physical baseline, not a replacement for the numerical reference.
+
+Keep this experiment after the RL pipeline is working, as requested. It helps contextualize how difficult the strong-bending cases are.
+
+## 42. Near-critical photon-sphere sweep
+
+For offsets approaching zero:
+
+\[
+r_0=1.5+\delta.
+\]
+
+Use geometrically decreasing positive delta values. Record escape angle, deflection, nfev, status, and max_angle.
+
+The deflection grows rapidly near the photon sphere. If the run reaches max_angle with no event, label it unresolved. Do not label it captured without an incoming initial condition and a capture event.
+
+This sweep is also useful for deciding which near-critical rays should be added to a later training dataset.
+
+## 43. Adaptive numerical integration
+
+The former step-size-control work remains an optional numerical-method branch. It can be useful to improve reference efficiency or provide another baseline.
+
+For RK4 step-doubling:
+- calculate one full h step;
+- calculate two half steps;
+- estimate local error with the fourth-order factor 15;
+- accept/reject using a normalized error;
+- count every RHS call.
+
+Do not make this the RL objective again. The agent's main action remains the proposed next photon state.
+
+---
+
+# PART X — Reproducibility, engineering, and final report
+
+## 44. Project metadata
+
+The repository was inspected with a file named project.toml. Python packaging frontends expect pyproject.toml. Check the working tree. If it is still named project.toml, rename it:
 
 ~~~bash
 git mv project.toml pyproject.toml
 ~~~
 
-Do not keep two competing metadata files.
+Do not keep two competing project metadata files.
 
-The existing metadata specifies Python 3.11+, NumPy, SciPy, Matplotlib, and pytest as a development dependency. The RL environment will later add Gymnasium, Stable-Baselines3, and TensorBoard. PyTorch, scikit-learn, and any data-handling library should be added only when their milestones begin.
+The existing dependencies include NumPy, SciPy, and Matplotlib, with pytest as a development dependency. Add Gymnasium, Stable-Baselines3, and TensorBoard when the RL environment is ready. Add PyTorch and any dataset tooling when the comparison-model milestones begin.
 
-## 56. Setup on Linux / WSL
+## 45. Development setup
+
+Linux / WSL:
 
 ~~~bash
 python -m venv .venv
@@ -1760,39 +2165,20 @@ Windows PowerShell activation:
 .venv\Scripts\Activate.ps1
 ~~~
 
-Run tests:
+Run scripts from the repository root and use package imports. Avoid relying on the current working directory accidentally placing src/lab on the Python path.
 
-~~~bash
-python -m pytest -q
-~~~
+## 46. Repository hygiene
 
-Run scripts from repository root, using package imports. Avoid imports that work only because the current directory happens to be src/lab.
+- Keep source code under src/.
+- Keep scripts under scripts/.
+- Keep tests under tests/.
+- Keep generated datasets under data/.
+- Keep figures, logs, and checkpoints under outputs/.
+- Ignore virtual environments, Python bytecode, transient logs, and large generated files unless deliberately publishing selected artifacts.
+- Do not let imports start simulations or training jobs.
+- Record the Git commit associated with each reported experiment.
 
-## 57. Test each layer independently
-
-1. Physics RHS and initial conditions.
-2. Escape event and status semantics.
-3. DOP853 reference, dense output, and v values.
-4. RK4 on a known analytic ODE.
-5. Dataset shape, metadata, and split leakage.
-6. Trajectory metrics and Cartesian plotting.
-7. Neural-network forward passes and finite losses.
-8. PINN derivative sanity checks.
-9. RL environment spaces, seeding, transition logic, and reward.
-10. End-to-end training and evaluation scripts.
-
-A green unit-test suite does not prove the physics is correct. A low training loss does not prove generalization. A high episodic reward does not prove the curve is accurate.
-
-## 58. Keep imports safe
-
-Importing a module should not:
-- run a simulation;
-- train a model;
-- write output files;
-- open a plot window;
-- start a training loop.
-
-Use a main guard in scripts:
+Every executable script should use a main guard:
 
 ~~~python
 def main():
@@ -1803,142 +2189,142 @@ if __name__ == "__main__":
     main()
 ~~~
 
-## 59. Data and artifacts
+## 47. Experiment manifest
 
-Keep generated datasets, checkpoints, logs, and figures under data/ and outputs/. Normally gitignore:
-- .venv/
-- __pycache__/
-- *.pyc
-- generated raw datasets if large;
-- transient training logs;
-- temporary checkpoints.
-
-Publish selected final figures, compact metrics, and model artifacts intentionally. Do not accidentally commit large caches or local environments.
-
-## 60. Reproducibility manifest
-
-Every dataset should save:
+For each dataset, save:
 - schema version;
-- equation and units;
+- governing equation and state convention;
+- units;
 - DOP853 method and tolerances;
-- maximum angle and maximum step;
-- exact r0 values;
-- escaped/unresolved status;
-- train/validation/test case IDs;
-- generation seed.
-
-Every training run should additionally save:
-- Git commit;
-- dataset manifest identifier;
-- observation and action definitions;
-- normalization scales;
-- reward components and weights;
+- max_angle and max_step;
 - delta_phi;
-- algorithm and hyperparameters;
-- random seed and training budget;
-- checkpoint path;
-- evaluation metrics.
+- all r0 case IDs;
+- escaped and unresolved status;
+- training, validation, and test case IDs;
+- random seed.
 
-Suggested result table:
+For each training run, save:
+- Git commit;
+- dataset manifest path/hash;
+- observation and action definitions;
+- normalization values;
+- reward formula and weights;
+- delta_phi;
+- RL algorithm and hyperparameters;
+- random seed and total training steps;
+- checkpoint path;
+- validation metrics.
+
+A model checkpoint by itself is not a reproducible experiment.
+
+## 48. Suggested per-ray evaluation CSV
 
 ~~~text
-method,seed,case_id,r0,escaped,escape_angle,deflection_rad,max_u_error,max_v_error,curve_error,ode_residual,invariant_drift,rollout_steps,runtime_seconds
+method,seed,case_id,r0,escaped,escape_angle,deflection_radian,max_u_error,max_v_error,cartesian_curve_error,ode_residual,invariant_drift,rollout_steps,runtime_seconds
 ~~~
 
+Keep one row per ray. Do not average away failures before saving the raw results.
+
+## 49. Final report structure
+
+1. Abstract — research question, methods, and measured result.
+2. Introduction — gravitational light bending and sequential trajectory generation.
+3. Physics — Schwarzschild assumptions, variables, ODE, initial conditions, photon sphere.
+4. Reference solver — DOP853, escape event, dense interpolation, tolerances.
+5. Dataset — ray sampling, resampling, packed format, splits, unresolved cases.
+6. RL formulation — observation, action, transition, reward, terminal conditions.
+7. Algorithm — PPO and any later SAC comparison.
+8. Baselines — numerical solver, supervised MLP, optional PINN and weak-field approximation.
+9. Evaluation — state/curve/deflection error, invariant drift, generalization, failure cases.
+10. Ablations — reward and observation choices.
+11. Limitations — teacher-guided reward, fixed angular grid, scattering-only first version.
+12. Conclusion — what the evidence supports and what remains open.
+
+## 50. Final deliverables
+
+- Existing Schwarzschild simulator preserved.
+- Dense DOP853 reference for u and v.
+- Reproducible full-trajectory dataset.
+- Dataset manifest and ray-level splits.
+- Reference trajectory gallery.
+- RL trajectory-generation environment.
+- Trained RL model and full configuration.
+- Generated-vs-reference plots for held-out rays.
+- Per-ray numerical and physics metrics.
+- Comprehensive tests.
+- Later supervised MLP and PINN comparisons.
+- Reproducible final report.
+
 ---
 
-# PART XII — Final report and release
+# PART XI — The actual order we will follow
 
-## 61. Suggested research report structure
+This is the project order. Do not reorder it into a test-first or baseline-first project.
 
-1. **Abstract:** research question, method, and measured result.
-2. **Introduction:** gravitational light bending and why trajectory generation is interesting.
-3. **Physical model:** Schwarzschild assumptions, units, ODE, initial conditions, photon sphere.
-4. **Numerical reference:** DOP853, event handling, tolerances, convergence and weak-field validation.
-5. **Dataset:** sampling, split protocol, unresolved cases, normalization.
-6. **RL formulation:** MDP, observation, action, reward, termination.
-7. **Algorithms:** PPO and any comparison methods.
-8. **Baselines:** RK4, supervised MLP, weak-field estimate, optional PINN.
-9. **Evaluation:** curve error, state error, escape/deflection error, invariant drift, generalization.
-10. **Ablations:** reward and observation decisions.
-11. **Limitations:** teacher-guided reward, fixed angular grid, scattering-only domain, numerical reference uncertainty.
-12. **Conclusion:** what worked, what did not, and what the evidence supports.
+| Step | Work | Main output |
+|---:|---|---|
+| 1 | Build the dense DOP853 reference | reference.py |
+| 2 | Generate complete photon curves | trajectory_data.py and NPZ |
+| 3 | Inspect and render the dataset | reference_trajectory_gallery.png |
+| 4 | Freeze train/validation/test ray splits | split_manifest.json |
+| 5 | Implement the trajectory-generation environment | trajectory_env.py |
+| 6 | Implement and inspect each reward component | reward diagnostics |
+| 7 | Train a short PPO smoke run | first checkpoint and logs |
+| 8 | Render agent-generated trajectories | generated-vs-reference figures |
+| 9 | Improve reward, observations, and training | stable RL policy |
+| 10 | Complete the systematic test suite | tests/ |
+| 11 | Run held-out and multi-seed evaluation | evaluation CSV and report |
+| 12 | Compare supervised MLP and PINN | model comparison |
+| 13 | Add weak-field, near-critical, capture, or adaptive extensions | optional research results |
 
-## 62. Final deliverables
+Small smoke checks are allowed during development. The point is that we do not spend the first half of the project writing a large test suite for a system that does not exist yet. Formalize tests after the data, environment, and first learning pipeline are in place.
 
-- Tested Schwarzschild simulator.
-- Reproducible dense DOP853 reference.
-- Physics-validation CSVs and plots.
-- Full-trajectory dataset with a frozen split manifest.
-- Reference gallery of weak, moderate, and strong bending.
-- Tested Gymnasium trajectory environment.
-- Trained RL model and configuration.
-- Supervised baseline and optional PINN comparison.
-- Held-out generated curves and error plots.
-- Final report with reproducible commands and limitations.
+## Immediate next coding session
 
----
+We start with the dataset, not tests and not PPO.
 
-# PART XIII — Ordered roadmap and next actions
+1. Add src/lab/reference.py using the existing _rhs and _escape_event.
+2. Run build_reference for r0 = 3, 5, and 10.
+3. Confirm that each case escapes and returns both u and v.
+4. Add src/lab/trajectory_data.py.
+5. Generate a small dataset of 20 to 30 rays first.
+6. Inspect the NPZ arrays and render the reference curve gallery.
+7. Only after the data looks correct, implement the Gymnasium environment.
 
-| Order | Milestone | Main deliverable | Completion gate |
-|---:|---|---|---|
-| 0 | Repository and solver inspection | Current code/API map | No stale assumptions about field names |
-| 1 | Physics regression tests | tests/test_geodesics.py | Escape and deflection semantics protected |
-| 2 | Dense DOP853 reference | reference.py | Arbitrary-angle u and v available |
-| 3 | Physics validation | weak-field and critical sweeps | Weak/strong-field behavior measured |
-| 4 | Trajectory dataset | trajectory_data.py and manifest | Disjoint ray-level splits |
-| 5 | Reference visualization | multi-ray gallery | Weak, moderate, strong bending visible |
-| 6 | Metrics | trajectory_metrics.py | State, curve, event, ODE, invariant scores |
-| 7 | Supervised MLP baseline | model and evaluator | Held-out trajectory errors recorded |
-| 8 | RL environment | trajectory_env.py | Fixed-angle sequential state generation passes tests |
-| 9 | PPO smoke test | train_rl.py and logs | Finite rewards and meaningful rollouts |
-| 10 | RL experiments | reward/observation ablations | Behavior and failure modes understood |
-| 11 | Final evaluation | multi-seed held-out report | Fair comparison with baselines |
-| 12 | PINN and extensions | optional branch | Added after core result is reproducible |
-
-## Immediate next session — do this, not PPO
-
-1. Inspect the current geodesics.py and run the existing simulator for r0 = 3, 5, 10.
-2. Add tests for normal escape, no-escape time limit, invalid r0, and alpha = 2 phi_escape - pi.
-3. Create a dense DOP853 reference exposing both u and v.
-4. Generate a small reference gallery for several r0 values.
-5. Numerically evaluate the conserved quantity I(u,v) along each ray.
-6. Run weak-field validation and a small near-critical sweep.
-7. Only then design and generate the multi-trajectory dataset.
-
-The next major coding task is **reference trajectory data generation**. The RL environment comes later, after we have enough accurate curves to train and evaluate it.
+The first concrete deliverable is **a dataset of complete photon trajectories**, not a test suite, not a scalar deflection predictor, and not an RL step-size controller.
 
 ---
 
 # Learning resources
 
-Use these resources to answer the next implementation question, not as a substitute for building and testing.
+Use resources when they help with the next implementation step. Do not delay project work to finish an entire textbook first.
 
-## Numerical methods and ODEs
+## Numerical ODEs
 - SciPy solve_ivp: https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html
 - SciPy integration tutorial: https://docs.scipy.org/doc/scipy/tutorial/integrate.html
-- Hairer, Nørsett, Wanner, Solving Ordinary Differential Equations I.
+- Hairer, Nørsett, and Wanner, *Solving Ordinary Differential Equations I*.
 
 ## Reinforcement learning
-- Sutton and Barto, Reinforcement Learning: An Introduction: http://incompleteideas.net/book/the-book-2nd.html
+- Sutton and Barto, *Reinforcement Learning: An Introduction*: http://incompleteideas.net/book/the-book-2nd.html
 - OpenAI Spinning Up: https://spinningup.openai.com/
 - Gymnasium: https://gymnasium.farama.org/
 - Stable-Baselines3: https://stable-baselines3.readthedocs.io/
 
 ## Physics
-Use a reliable general-relativity reference for Schwarzschild geometry, null geodesics, photon sphere, impact parameter, and weak-field deflection. Keep assumptions and units explicit in the report.
+Use a reliable general-relativity source for Schwarzschild geometry, null geodesics, the photon sphere, impact parameter, and weak-field bending. Keep all assumptions and units explicit.
 
 ---
 
-# Guide maintenance rules
+# Rules for keeping this guide useful
 
-- Update the project status when a milestone is actually complete.
-- Never mark a milestone complete because code was merely written; tests and evidence are required.
-- If the repository API differs from an example, update the example to match the source.
-- Keep one primary research question: RL generation of photon trajectories.
-- Keep scalar regression, PINN, adaptive integration, capture, and active sampling as comparisons or extensions—not competing main projects.
-- Record failed experiments and unexpected results; do not erase them to make the project look successful.
-- Every result in the final report must be reproducible from a script and saved configuration.
+- The project has one main objective: RL-based photon-trajectory generation.
+- Update this document when the implementation changes; do not create another competing master guide.
+- Code examples must match the actual repository API.
+- Explain new code in the chapter where it is introduced.
+- Do not mark a milestone complete because code was pasted; inspect outputs and behavior.
+- Keep tests systematic but do not let them displace the main build sequence.
+- Keep MLP, PINN, weak-field checks, critical sweeps, captured rays, and adaptive integration as later comparisons or extensions.
+- Record failed runs and unexpected behavior; do not hide them.
+- Every final claim must be supported by reproducible metrics.
 
-**Guiding principle:** the agent learns to generate the light path. Physics, numerical analysis, and machine learning all support that one objective.
+**The agent's job is to learn the shape of the light path. We build the dataset, give the agent the ability to generate trajectories, train it, inspect what it learned, and only then run the full scientific test and comparison program.**
