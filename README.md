@@ -1,34 +1,33 @@
 # Black Hole Lab
 
-A computational project exploring Schwarzschild photon trajectories, numerical integration, adaptive step-size control, and reinforcement learning.
+A computational project studying Schwarzschild photon trajectories and learning to generate gravitationally bent light paths with reinforcement learning.
 
 ## Start here
 
-**[Integrated implementation guide: RK4 to PPO](GUIDE_FROM_RK4_TO_PPO.md)**
+**[RL Photon-Trajectory Generation Guide](GUIDE_RL_TRAJECTORY_LEARNING.md)**
 
-This is the active, step-by-step guide. It starts from the repository's current RK4 implementation and proceeds through:
+This is the active research and implementation guide. The goal is to train an RL agent to generate the photon's path sequentially: at each fixed angular increment, the agent predicts the next state of the ray. It is not an RL step-size optimizer.
 
-1. RK4 unit tests and convergence validation
-2. Tests for the Schwarzschild geodesic model
-3. A dense DOP853 reference and fixed-step RK4 runner
-4. Escape-event localization and numerical convergence experiments
-5. An adaptive RK4 step-doubling baseline
-6. A Gymnasium environment for step-size control
-7. Non-learning baselines, PPO training, and held-out evaluation
+### Research milestones
 
-The guide keeps the explanation, implementation, tests, and acceptance criteria together in each milestone. Do not jump to PPO before the numerical baselines are validated.
+1. Protect the existing geodesic physics with tests.
+2. Build a dense DOP853 reference exposing both u and v.
+3. Generate a multi-trajectory dataset split by closest-approach parameter.
+4. Visualize weak, moderate, and strong gravitational bending.
+5. Build an RL environment where the agent predicts the next trajectory state.
+6. Train and compare RL policies against numerical and supervised baselines.
+7. Evaluate trajectory accuracy and generalization on unseen initial conditions.
 
-## Additional documentation
+## Other documentation
 
-- [Unified research and implementation textbook](guide.md) — broader project context and background material. The active implementation order is linked at the top.
-- [Earlier research and implementation guide](DOCS/BLACK_HOLE_LAB_GUIDE.md) — retained for historical/background reference; its opening notice points to the current guide.
+- [Previous RK4-to-PPO guide](GUIDE_FROM_RK4_TO_PPO.md) — retained for history; its opening notice explains why it is no longer the active plan.
+- [Unified research textbook](guide.md) — background material; see its opening notice for the current objective.
+- [Earlier research guide](DOCS/BLACK_HOLE_LAB_GUIDE.md) — retained as historical/background reference.
 
-## Current research question
+## Research question
 
-> Can a reinforcement-learning policy learn to choose numerical integration step sizes for Schwarzschild photon geodesics, balancing computational cost against numerical accuracy?
+> Can a reinforcement-learning agent learn to generate photon trajectories near a Schwarzschild black hole, generalize to unseen initial conditions, and reproduce gravitational light bending?
 
-The agent controls the numerical integrator's step size. It does not control the photon or change the physical geodesic.
+The existing geodesic ODE and DOP853 solver provide the physics reference. The RL agent's action is its proposed next trajectory state, not a numerical integration step size.
 
-## Development
-
-The project uses Python, NumPy, SciPy, and Matplotlib. Gymnasium and Stable-Baselines3 are introduced later in the RL milestone. See the integrated guide for the current setup instructions and exact milestone order.
+See the active guide for the mathematical formulation, reward design, dataset generation, environment, baselines, and evaluation plan.
