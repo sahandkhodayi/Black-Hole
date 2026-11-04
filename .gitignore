@@ -8,7 +8,7 @@
 __pycache__
 
 # markdown files are ignored by default
-*.md
+
 
 # Keep the maintained project guide in version control
 !DOCS/
