@@ -1949,16 +1949,75 @@ def rollout(model, env, case_index):
         observation, reward, terminated, truncated, step_info = env.step(action)
         total_reward += float(reward)
 
+    generated_phi = np.asarray(env.generated_phi, dtype=np.float64)
+    generated_states = np.asarray(env.generated_states, dtype=np.float64)
+
+    reference_phi = np.asarray(env.case["phi"], dtype=np.float64)
+    reference_u = np.asarray(env.case["u"], dtype=np.float64)
+    reference_v = np.asarray(env.case["v"], dtype=np.float64)
+
+    common_end = min(generated_phi[-1], reference_phi[-1])
+    comparison_phi = np.linspace(0.0, common_end, 500)
+
+    generated_u = np.interp(
+        comparison_phi, generated_phi, generated_states[:, 0]
+    )
+    generated_v = np.interp(
+        comparison_phi, generated_phi, generated_states[:, 1]
+    )
+    target_u = np.interp(comparison_phi, reference_phi, reference_u)
+    target_v = np.interp(comparison_phi, reference_phi, reference_v)
+
+    max_u_error = float(np.max(np.abs(generated_u - target_u)))
+    max_v_error = float(np.max(np.abs(generated_v - target_v)))
+
+    valid_cartesian = (
+        (generated_u > 0.0)
+        & (target_u > 0.0)
+        & (generated_u >= 1.0 / 30.0)
+        & (target_u >= 1.0 / 30.0)
+    )
+
+    if np.any(valid_cartesian):
+        generated_r = 1.0 / generated_u[valid_cartesian]
+        target_r = 1.0 / target_u[valid_cartesian]
+
+        generated_x = generated_r * np.cos(comparison_phi[valid_cartesian])
+        generated_y = generated_r * np.sin(comparison_phi[valid_cartesian])
+        target_x = target_r * np.cos(comparison_phi[valid_cartesian])
+        target_y = target_r * np.sin(comparison_phi[valid_cartesian])
+
+        cartesian_error = np.sqrt(
+            (generated_x - target_x) ** 2
+            + (generated_y - target_y) ** 2
+        )
+        mean_cartesian_error = float(np.mean(cartesian_error))
+    else:
+        mean_cartesian_error = None
+
+    successful = step_info["termination_reason"] == "successful_escape"
+    agent_escape_angle = float(generated_phi[-1]) if successful else None
+    agent_deflection = (
+        2.0 * agent_escape_angle - np.pi
+        if agent_escape_angle is not None
+        else None
+    )
+
     return {
         "case_index": int(case_index),
         "r0": float(info["r0"]),
-        "phi": np.asarray(env.generated_phi),
-        "states": np.asarray(env.generated_states),
-        "reference_phi": env.case["phi"],
-        "reference_u": env.case["u"],
-        "reference_v": env.case["v"],
+        "phi": generated_phi,
+        "states": generated_states,
+        "reference_phi": reference_phi,
+        "reference_u": reference_u,
+        "reference_v": reference_v,
         "escape_angle": float(env.case["escape_angle"]),
         "deflection_radian": float(env.case["deflection_radian"]),
+        "agent_escape_angle": agent_escape_angle,
+        "agent_deflection_radian": agent_deflection,
+        "max_u_error": max_u_error,
+        "max_v_error": max_v_error,
+        "mean_cartesian_curve_error": mean_cartesian_error,
         "return": total_reward,
         "termination_reason": step_info["termination_reason"],
     }
@@ -2051,7 +2110,12 @@ def main():
             "return": result["return"],
             "termination_reason": result["termination_reason"],
             "escape_angle_reference": result["escape_angle"],
+            "escape_angle_agent": result["agent_escape_angle"],
             "deflection_reference": result["deflection_radian"],
+            "deflection_agent": result["agent_deflection_radian"],
+            "max_u_error": result["max_u_error"],
+            "max_v_error": result["max_v_error"],
+            "mean_cartesian_curve_error": result["mean_cartesian_curve_error"],
         })
 
     (output_dir / "summary.json").write_text(
