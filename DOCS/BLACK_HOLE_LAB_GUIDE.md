@@ -1,3 +1,7 @@
+> **Research direction update:** This is an earlier project guide. The active objective is now RL-based photon-trajectory generation, not RL step-size control. Follow [the current trajectory-learning guide](../GUIDE_RL_TRAJECTORY_LEARNING.md).
+>
+>
+---
 > **Current guide:** This document is retained as an earlier research/implementation reference. The active implementation sequence, with code placed directly beside the milestone that uses it, is now in [the integrated RK4-to-PPO guide](../GUIDE_FROM_RK4_TO_PPO.md). Start there to avoid following overlapping older instructions.
 > 
 > Repository documentation index: [README.md](../README.md).
