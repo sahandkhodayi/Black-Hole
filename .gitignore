@@ -9,3 +9,6 @@
 ./src/lab/__pycache__
 
 __pycache__
+
+#md files
+*.md
