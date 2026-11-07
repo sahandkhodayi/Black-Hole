@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.integrate import solve_ivp
 
-from geodesics import _rhs, _escape_event
+from .geodesics import _rhs, _escape_event
 
 
 @dataclass(frozen=True)

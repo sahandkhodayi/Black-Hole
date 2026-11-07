@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "description": "Schwarzschild scattering photon trajectories",
+  "equation": "u'' = 1.5*u**2 - u",
+  "state": [
+    "u",
+    "v=du/dphi"
+  ],
+  "length_unit": "Schwarzschild radii",
+  "angle_unit": "radians",
+  "reference_solver": "SciPy DOP853",
+  "rtol": 1e-12,
+  "atol": 1e-14,
+  "max_step": 0.01,
+  "max_angle": 20.0,
+  "delta_phi": 0.01,
+  "num_escaped": 120,
+  "unresolved": [],
+  "data_file": "data\\photon_trajectories.npz"
+}
