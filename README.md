@@ -2772,3 +2772,16 @@ These tests cover the geodesic right-hand side, escape behavior, dense reference
 ## Scope boundary
 
 This repository preparation includes the physical reference solver, dataset generation and inspection, packaging, import cleanup, and tests for those components. It deliberately does not implement an RL environment, reward function, policy, training loop, neural network, PINN, or any other machine-learning component. Those remain your implementation work.
+
+
+## Whole-trajectory data splits (pre-learning preparation)
+
+After generating and inspecting the reference curves, freeze a split manifest:
+
+~~~bash
+python src/make_splits.py --seed 42
+~~~
+
+This writes data/split_manifest.json with 70% training, 15% validation, and 15% test trajectories by default. The split unit is the complete ray case_id, never an individual phi sample. All samples from one photon trajectory therefore remain in exactly one split. Reuse this same manifest for later experiments so different methods are evaluated on identical held-out rays. The splitter also reads the older dataset format that did not store case_id.
+
+No normalization, reward, environment, policy, or model is created by this utility.

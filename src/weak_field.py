@@ -1,3 +1,10 @@
+"""Compare numerical Schwarzschild bending with the leading weak-field limit.
+
+With r_s = 1, the impact parameter at a turning radius r0 is
+b = r0 / sqrt(1 - 1/r0). The leading weak-field prediction is alpha ~= 2/b.
+It should improve as the photon passes farther from the black hole.
+"""
+
 import csv
 from pathlib import Path
 
@@ -7,12 +14,18 @@ import numpy as np
 from lab.geodesics import simulate_ray
 
 
-def impact_parameter(r0):
-    return r0 / np.sqrt(1.0 - 1.0 / r0)
+def impact_parameter(r0: float) -> float:
+    """Return the dimensionless impact parameter b/r_s for a turning radius."""
+    r0 = float(r0)
+    if not np.isfinite(r0) or r0 <= 1.0:
+        raise ValueError("r0 must be finite and greater than the horizon radius")
+    return float(r0 / np.sqrt(1.0 - 1.0 / r0))
 
 
 def main():
     rows = []
+    # These radii are deliberately well outside the photon sphere: this
+    # comparison checks the weak-field approximation, not strong lensing.
     for r0 in [10.0, 15.0, 20.0, 30.0, 50.0, 80.0]:
         ray = simulate_ray(closest_approach=r0, max_angle=8.0)
         b_bar = impact_parameter(r0)
@@ -58,11 +71,13 @@ def main():
     )
     plt.xlabel("Impact parameter b / r_s")
     plt.ylabel("Deflection (radians)")
-    plt.grid(True, which="both", alpha=0.25)
+    plt.grid(True, which="both", alpha=0.2)
     plt.legend()
     plt.tight_layout()
     plt.savefig("outputs/weak_field.png", dpi=180)
     plt.close()
+    print(f"Saved numerical comparison: {output}")
+    print("Saved figure: outputs/weak_field.png")
 
 
 if __name__ == "__main__":
