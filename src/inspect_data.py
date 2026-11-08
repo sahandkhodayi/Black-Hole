@@ -15,7 +15,7 @@ from matplotlib.patches import Circle
 
 
 REQUIRED_ARRAYS = {
-    "case_id", "r0", "phi", "u", "v", "offsets",
+    "r0", "phi", "u", "v", "offsets",
     "escape_angle", "deflection_radian",
 }
 
@@ -26,7 +26,13 @@ def load_dataset(path: str | Path) -> dict[str, np.ndarray]:
         missing = REQUIRED_ARRAYS.difference(archive.files)
         if missing:
             raise ValueError(f"Dataset is missing arrays: {sorted(missing)}")
-        return {name: np.asarray(archive[name]) for name in archive.files}
+        data = {name: np.asarray(archive[name]) for name in archive.files}
+
+    # Version-1 datasets predate the explicit case_id array. Their stored
+    # order is still meaningful, so synthesize IDs from the ray positions.
+    if "case_id" not in data:
+        data["case_id"] = np.arange(len(data["r0"]), dtype=np.int64)
+    return data
 
 
 def validate_dataset(data: dict[str, np.ndarray]) -> None:
