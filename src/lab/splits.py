@@ -47,7 +47,14 @@ def make_ray_splits(
         [train_fraction, validation_fraction, test_fraction],
         dtype=np.float64,
     )
-    if not np.all(np.isfinite(fractions)) or np.any(fractions <= 0.0):
+    # A sum such as 0.7 + 0.3 can leave a tiny positive floating-point
+    # remainder. Treat values within numerical roundoff of zero as invalid.
+    if (
+        not np.all(np.isfinite(fractions))
+        or train_fraction <= 0.0
+        or validation_fraction <= 0.0
+        or test_fraction <= 1e-12
+    ):
         raise ValueError("Train, validation, and test fractions must all be positive")
     if not np.isclose(fractions.sum(), 1.0):
         raise ValueError("Split fractions must sum to 1")
