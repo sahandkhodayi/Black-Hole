@@ -1,15 +1,18 @@
-#outputs
-./outputs
+# Python bytecode and test/build caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# docs for now
-./DOCS
+# Virtual environments and packaging outputs
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
 
-./src/lab/__pycache__
-__pycache__
-
-# markdown files are ignored by default
-
-
-# Keep the maintained project guide in version control
-!DOCS/
-!DOCS/BLACK_HOLE_LAB_GUIDE.md
+# Local experiment logs
+outputs/*.log
+outputs/*.tmp

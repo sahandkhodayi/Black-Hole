@@ -2690,3 +2690,85 @@ Use a reliable general-relativity source for Schwarzschild geometry, null geodes
 - Every final claim must be supported by reproducible metrics.
 
 **The agent's job is to learn the shape of the light path. We build the dataset, give the agent the ability to generate trajectories, train it, inspect what it learned, and only then run the full scientific test and comparison program.**
+
+---
+
+# Current repository setup and pre-RL workflow
+
+This section records the implementation names and commands that exist in the repository. If an older example above uses a different filename or command, follow this section.
+
+## Environment setup
+
+Python 3.11 or newer is required. From the repository root:
+
+```bash
+python -m venv .venv
+```
+
+Activate it on Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Activate it on Linux or WSL:
+
+```bash
+source .venv/bin/activate
+```
+
+Install the project in editable mode with development tools:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+The pyproject.toml file is the package/build configuration. The src directory is the Python source root, and modules inside lab use package-relative imports.
+
+## Generate the reference dataset
+
+The reference implementation is src/lab/reference.py. It uses SciPy DOP853 with dense output. The dataset generator is src/lab/trajectory.py, and the command-line entry point is src/generate_data.py.
+
+Start with a small dataset:
+
+```bash
+python src/generate_data.py --count 30 --r-min 2.2 --r-max 12
+```
+
+The default outputs are:
+
+- data/photon_trajectories.npz — packed numerical arrays.
+- data/trajectory_manifest.json — solver settings, units, case IDs, and unresolved cases.
+
+Each ray has a different escape angle and may have a different number of samples. Therefore, the NPZ uses flat arrays and an offsets array: ray i occupies [offsets[i], offsets[i + 1]). The archive stores case_id, r0, phi, u, v, offsets, escape_angle, and deflection_radian. Its schema version is 2.
+
+DOP853 chooses adaptive internal steps. Dense interpolation resamples each reference at the requested fixed angular spacing delta_phi; the exact escape-event angle is always appended as the final sample. A ray that does not escape before max_angle is recorded as unresolved in the manifest and is not stored as a complete ray.
+
+## Inspect the dataset before doing anything with learning
+
+Run:
+
+```bash
+python src/inspect_data.py
+```
+
+This validates the packed-array structure and saves outputs/reference_trajectory_gallery.png. To also open the figure:
+
+```bash
+python src/inspect_data.py --show
+```
+
+Inspect whether the curves bend in the expected direction, start at the requested closest approach, and finish at their escape angles. Check the printed radius and deflection ranges and inspect unresolved cases in the JSON manifest.
+
+## Run the current checks
+
+```bash
+python -m pytest -q
+```
+
+These tests cover the geodesic right-hand side, escape behavior, dense reference interpolation, the conserved quantity, and the packed dataset format. They do not train or evaluate an RL or ML model.
+
+## Scope boundary
+
+This repository preparation includes the physical reference solver, dataset generation and inspection, packaging, import cleanup, and tests for those components. It deliberately does not implement an RL environment, reward function, policy, training loop, neural network, PINN, or any other machine-learning component. Those remain your implementation work.
