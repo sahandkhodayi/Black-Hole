@@ -16,7 +16,11 @@ u = data["u"][start:end]
 v = data["v"][start:end]
 
 print("r0:", data["r0"][ray_index])
-print("first state:", u[0], v[0])
-print("last state:", u[-1], v[-1])
+radius = np.where(u > 0, 1.0 / u, np.inf)
+print(f"phi : {phi[0:30]}")
+
+print(f"first radius: {radius[0]}")
+print(f"minimum radius: {radius.min()}")
+print(f"maximum radius: {radius.max()}")
 print("last angle:", phi[-1])
 print("stored escape angle:", data["escape_angle"][ray_index])
