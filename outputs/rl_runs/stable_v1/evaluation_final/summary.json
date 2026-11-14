@@ -1,0 +1,8 @@
+{
+  "split": "test",
+  "num_rays": 5,
+  "mean_rmse_u": 0.10386783826406747,
+  "mean_rmse_v": 0.06793252435537589,
+  "figure": "outputs\\rl_runs\\stable_v1\\evaluation_final\\trajectory_comparison.png",
+  "metrics": "outputs\\rl_runs\\stable_v1\\evaluation_final\\metrics.csv"
+}

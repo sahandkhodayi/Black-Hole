@@ -1,0 +1,65 @@
+{
+  "algorithm": "PPO",
+  "task": "teacher-guided sequential photon trajectory tracking",
+  "seconds_requested": 600.0,
+  "seed": 42,
+  "dataset": "data/photon_trajectories_v2.npz",
+  "splits": "data/split_manifest_v2.json",
+  "train_case_ids": [
+    29,
+    16,
+    7,
+    25,
+    24,
+    22,
+    5,
+    21,
+    26,
+    10,
+    19,
+    20,
+    9,
+    6,
+    18,
+    3,
+    0,
+    15,
+    17,
+    23,
+    12
+  ],
+  "validation_case_ids": [
+    11,
+    14,
+    28,
+    2
+  ],
+  "observation": [
+    "r0/12",
+    "phi/3",
+    "current_u/0.5",
+    "current_v/0.2"
+  ],
+  "action": [
+    "u in [0, 0.5]",
+    "v in [-0.2, 0.2]"
+  ],
+  "reward": "1 / (1 + ((u_pred-u_ref)/0.5)^2 + ((v_pred-v_ref)/0.2)^2)",
+  "policy": "MlpPolicy",
+  "network": [
+    64,
+    64
+  ],
+  "learning_rate": 0.0001,
+  "n_steps": 512,
+  "batch_size": 128,
+  "n_epochs": 10,
+  "gamma": 0.99,
+  "gae_lambda": 0.95,
+  "clip_range": 0.15,
+  "ent_coef": 0.005,
+  "target_kl": 0.03,
+  "checkpoint_selection": "Use best/best_model.zip selected by validation reward; final_model.zip is the last iterate.",
+  "seconds_actual": 600.0306113999977,
+  "timesteps_actual": 233919
+}
