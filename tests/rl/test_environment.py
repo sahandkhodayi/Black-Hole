@@ -46,3 +46,17 @@ def test_episode_ends_at_reference_endpoint(tiny_dataset):
     assert terminated and not truncated
     with pytest.raises(RuntimeError):
         env.step(action)
+
+
+def test_reward_is_bounded_and_prefers_smaller_prediction_error(tiny_dataset):
+    path, ids = tiny_dataset
+    env = PhotonTrajectoryEnv(path, ids)
+    env.reset(options={"case_id": 10})
+
+    _, perfect_reward, _, _, _ = env.step(np.asarray([-0.24, -0.5], dtype=np.float32))
+
+    env.reset(options={"case_id": 10})
+    _, poor_reward, _, _, _ = env.step(np.asarray([1.0, 1.0], dtype=np.float32))
+
+    assert 0.0 < poor_reward < perfect_reward == pytest.approx(1.0)
+
