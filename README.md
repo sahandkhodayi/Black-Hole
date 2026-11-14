@@ -38,8 +38,12 @@ python src/make_splits.py --data data/photon_trajectories_v2.npz --output data/s
 
 The former long README has been preserved at [docs/PROJECT_REFERENCE.md](docs/PROJECT_REFERENCE.md). Treat it as historical study material; use GUIDEBOOK.md for current instructions.
 
+## RL presentation prototype
+
+An initial teacher-guided PPO trajectory-tracking prototype is available in `src/rl/`. See [the two-day presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md) for installation, timed training runs, evaluation, and plots. This is an experimental prototype; run it locally and report only measured results.
+
 ## Research scope
 
 The target is sequential generation of escaping photon trajectories. The reference solver supplies ground-truth curves for evaluation and (in the first proposed experiment) teacher-guided reward. PPO is a candidate first algorithm, not the research question itself. The guidebook discusses the difference between teacher-guided trajectory imitation through RL and a policy that independently decides when a ray has escaped.
 
-No RL environment, reward implementation, policy, or ML model is currently included in the repository. You will build those as learning milestones.
+The first RL environment, PPO training script, evaluation script, and experiment comparison utility are included on the `presentation/rl-prototype` branch. They are a teacher-guided tracking baseline, not a claim of autonomous physics discovery.
