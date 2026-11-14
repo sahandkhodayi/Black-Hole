@@ -2,7 +2,7 @@ name: Python tests
 
 on:
   push:
-    branches: [main, "work/**"]
+    branches: [main, "work/**", "presentation/**"]
   pull_request:
   workflow_dispatch:
 
@@ -20,6 +20,6 @@ jobs:
       - name: Install package and development dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
-      - name: Run physics and dataset tests
+          python -m pip install -e ".[dev,test-rl]"
+      - name: Run physics, dataset, and RL environment tests
         run: python -m pytest -q
