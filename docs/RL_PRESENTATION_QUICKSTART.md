@@ -30,7 +30,11 @@ histories under outputs/rl_runs/<run-name>/.
 
 ## Evaluate and compare
 
+First evaluate the untrained policy as a baseline, then the trained policy:
+
 ~~~powershell
+python -m rl.evaluate --model outputs/rl_runs/1min/initial_model.zip --split test --output outputs/rl_runs/1min/evaluation_initial
+python -m rl.evaluate --model outputs/rl_runs/1min/final_model.zip --split test --output outputs/rl_runs/1min/evaluation_final
 python -m rl.evaluate --model outputs/rl_runs/1min/best/best_model.zip --split test
 python -m rl.evaluate --model outputs/rl_runs/10min/best/best_model.zip --split test
 python -m rl.compare outputs/rl_runs/1min outputs/rl_runs/10min outputs/rl_runs/1hour
