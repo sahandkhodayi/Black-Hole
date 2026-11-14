@@ -39,7 +39,7 @@ The former long README has been preserved at [docs/PROJECT_REFERENCE.md](docs/PR
 
 ## RL presentation prototype
 
-The teacher-guided PPO trajectory-tracking prototype is available in `src/rl/`. See [the presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md) for timed training runs, evaluation, and plots. This is an experimental prototype; run it locally and report only measured results.
+The teacher-guided PPO trajectory-tracking prototype is available in `src/rl/`. See [the presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md) for timed training runs, evaluation, and plots, and [presentation notes](docs/PRESENTATION_NOTES.md) for the physics, RL formulation, slide outline, and likely questions. This is an experimental prototype; run it locally and report only measured results.
 
 ## Research scope
 
