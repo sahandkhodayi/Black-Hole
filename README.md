@@ -4,7 +4,7 @@ A numerical-physics and machine-learning prototype studying photon trajectories 
 
 ## Start here
 
-**[Open the RL presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md)** for installation, timed training, and evaluation. For simple PNG figures without TensorBoard, see [Simple presentation plots](docs/SIMPLE_PRESENTATION_PLOTS.md). The [RL Learning Guidebook](GUIDEBOOK.md) remains the deeper theory and research-design reference.
+**[Open the RL presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md)** for installation, timed training, and evaluation. For simple PNG figures without TensorBoard, see [Simple presentation plots](docs/SIMPLE_PRESENTATION_PLOTS.md). If PPO training is unstable, follow the [PPO stability update](docs/RL_STABILITY_UPDATE.md) and evaluate the validation-selected checkpoint. The [RL Learning Guidebook](GUIDEBOOK.md) remains the deeper theory and research-design reference.
 
 ## Current repository capabilities
 
@@ -13,7 +13,7 @@ A numerical-physics and machine-learning prototype studying photon trajectories 
 - Packed trajectory dataset generation and inspection.
 - Reproducible whole-trajectory train/validation/test splitting.
 - Numerical diagnostics, plots, weak-field comparison, and tests.
-- Initial teacher-guided PPO environment, training, evaluation, and run-comparison scripts (presentation/rl-prototype branch).
+- Teacher-guided PPO environment, training, evaluation, run-comparison, and presentation-plot scripts.
 
 ## Quick start
 
@@ -45,4 +45,4 @@ The teacher-guided PPO trajectory-tracking prototype is available in `src/rl/`. 
 
 The target is sequential generation of escaping photon trajectories. The reference solver supplies ground-truth curves for evaluation and (in the first proposed experiment) teacher-guided reward. PPO is a candidate first algorithm, not the research question itself. The guidebook discusses the difference between teacher-guided trajectory imitation through RL and a policy that independently decides when a ray has escaped.
 
-The first RL environment, PPO training script, evaluation script, and experiment comparison utility are included on the `presentation/rl-prototype` branch. They are a teacher-guided tracking baseline, not a claim of autonomous physics discovery.
+The RL environment, PPO training script, evaluation script, and experiment comparison utility are included on the default branch. They are a teacher-guided tracking baseline, not a claim of autonomous physics discovery.
