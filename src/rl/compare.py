@@ -28,8 +28,11 @@ def main():
         raise SystemExit("No evaluation histories found; train until the first evaluation.")
     ax.set(title="PPO validation reward during training", xlabel="Environment timesteps",
            ylabel="Mean validation episode reward")
-    ax.grid(alpha=0.25); ax.legend(); fig.tight_layout()
-    output = Path(args.output); output.parent.mkdir(parents=True, exist_ok=True)
+    ax.grid(alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=180)
     print(f"Saved: {output}")
 
