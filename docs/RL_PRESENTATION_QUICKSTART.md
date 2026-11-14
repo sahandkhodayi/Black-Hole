@@ -25,8 +25,14 @@ python -m rl.train --seconds 600 --seed 42 --run-name 10min
 python -m rl.train --seconds 3600 --seed 42 --run-name 1hour
 ~~~
 
-Runs save config, final model, checkpoints, TensorBoard logs, and validation
-histories under outputs/rl_runs/<run-name>/.
+Runs save config, initial/final models, checkpoints, TensorBoard logs, and validation
+histories under outputs/rl_runs/<run-name>/. To watch training live in a second terminal:
+
+~~~powershell
+tensorboard --logdir outputs/rl_runs
+~~~
+
+Then open the local TensorBoard address printed in the terminal (usually port 6006).
 
 ## Evaluate and compare
 
