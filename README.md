@@ -4,7 +4,7 @@ A numerical-physics and machine-learning prototype studying photon trajectories 
 
 ## Start here
 
-**[Open the RL presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md)** for the working prototype's installation, timed training, evaluation, and plotting commands. The [RL Learning Guidebook](GUIDEBOOK.md) remains the deeper theory and research-design reference.
+**[Open the RL presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md)** for installation, timed training, and evaluation. For simple PNG figures without TensorBoard, see [Simple presentation plots](docs/SIMPLE_PRESENTATION_PLOTS.md). The [RL Learning Guidebook](GUIDEBOOK.md) remains the deeper theory and research-design reference.
 
 ## Current repository capabilities
 
