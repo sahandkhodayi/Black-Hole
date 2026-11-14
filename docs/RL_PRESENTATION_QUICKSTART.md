@@ -49,7 +49,7 @@ python -m rl.compare outputs/rl_runs/1min outputs/rl_runs/10min outputs/rl_runs/
 If best/best_model.zip does not exist because the run ended before its first
 evaluation, use final_model.zip.
 
-## Observation, action, and reward
+## Simple presentation plots (recommended)\n\nYou do not need TensorBoard to prepare presentation figures. Follow [the simple plotting guide](SIMPLE_PRESENTATION_PLOTS.md), or after evaluating initial and final policies run:\n\n~~~powershell\npython -m rl.presentation_plots outputs/rl_runs/1min\n~~~\n\nThis creates readable PNGs for validation reward and held-out test error under `outputs/rl_figures/`.\n\n## Observation, action, and reward
 
 Observation: [r0/12, phi/3, current_u/0.5, current_v/0.2].
 
