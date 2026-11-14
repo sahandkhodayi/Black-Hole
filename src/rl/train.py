@@ -25,7 +25,7 @@ def main():
     parser.add_argument("--seconds", type=float, default=60)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--run-name", default=None)
-    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
@@ -40,6 +40,7 @@ def main():
                 clip_range=0.2, ent_coef=0.0, policy_kwargs={"net_arch": [64, 64]},
                 tensorboard_log=str(run_dir / "tensorboard"),
                 seed=args.seed, device=args.device, verbose=1)
+    model.save(run_dir / "initial_model")
     callbacks = [
         WallClockLimitCallback(args.seconds),
         CheckpointCallback(save_freq=500, save_path=str(run_dir / "checkpoints"),
