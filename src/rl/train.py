@@ -35,31 +35,59 @@ def main():
     train_ids, val_ids = read_ids(args.splits, "train"), read_ids(args.splits, "validation")
     train_env = Monitor(PhotonTrajectoryEnv(args.dataset, train_ids, randomize_cases=True))
     eval_env = Monitor(PhotonTrajectoryEnv(args.dataset, val_ids, randomize_cases=False))
-    model = PPO("MlpPolicy", train_env, learning_rate=3e-4, n_steps=256,
-                batch_size=64, n_epochs=5, gamma=0.99, gae_lambda=0.95,
-                clip_range=0.2, ent_coef=0.0, policy_kwargs={"net_arch": [64, 64]},
-                tensorboard_log=str(run_dir / "tensorboard"),
-                seed=args.seed, device=args.device, verbose=1)
+
+    # Smaller updates + a KL guard reduce destructive policy jumps. The
+    # positive bounded reward in the environment also keeps returns well-scaled.
+    model = PPO(
+        "MlpPolicy", train_env,
+        learning_rate=1e-4,
+        n_steps=512,
+        batch_size=128,
+        n_epochs=10,
+        gamma=0.99,
+        gae_lambda=0.95,
+        clip_range=0.15,
+        ent_coef=0.005,
+        target_kl=0.03,
+        policy_kwargs={"net_arch": [64, 64]},
+        tensorboard_log=str(run_dir / "tensorboard"),
+        seed=args.seed,
+        device=args.device,
+        verbose=1,
+    )
     model.save(run_dir / "initial_model")
     callbacks = [
         WallClockLimitCallback(args.seconds),
-        CheckpointCallback(save_freq=500, save_path=str(run_dir / "checkpoints"),
+        CheckpointCallback(save_freq=1000, save_path=str(run_dir / "checkpoints"),
                            name_prefix="ppo_photon"),
         EvalCallback(eval_env, best_model_save_path=str(run_dir / "best"),
-                     log_path=str(run_dir / "evaluation"), eval_freq=500,
+                     log_path=str(run_dir / "evaluation"), eval_freq=1000,
                      n_eval_episodes=min(4, len(val_ids)), deterministic=True, verbose=1),
     ]
     config = {
-        "algorithm": "PPO", "task": "teacher-guided sequential photon trajectory tracking",
-        "seconds_requested": args.seconds, "seed": args.seed,
-        "dataset": args.dataset, "splits": args.splits,
-        "train_case_ids": train_ids, "validation_case_ids": val_ids,
+        "algorithm": "PPO",
+        "task": "teacher-guided sequential photon trajectory tracking",
+        "seconds_requested": args.seconds,
+        "seed": args.seed,
+        "dataset": args.dataset,
+        "splits": args.splits,
+        "train_case_ids": train_ids,
+        "validation_case_ids": val_ids,
         "observation": ["r0/12", "phi/3", "current_u/0.5", "current_v/0.2"],
         "action": ["u in [0, 0.5]", "v in [-0.2, 0.2]"],
-        "reward": "1 - 4 * (((u_pred-u_ref)/0.5)^2 + ((v_pred-v_ref)/0.2)^2)",
-        "policy": "MlpPolicy", "network": [64, 64], "learning_rate": 3e-4,
-        "n_steps": 256, "batch_size": 64, "n_epochs": 5,
-        "gamma": 0.99, "gae_lambda": 0.95, "clip_range": 0.2,
+        "reward": "1 / (1 + ((u_pred-u_ref)/0.5)^2 + ((v_pred-v_ref)/0.2)^2)",
+        "policy": "MlpPolicy",
+        "network": [64, 64],
+        "learning_rate": 1e-4,
+        "n_steps": 512,
+        "batch_size": 128,
+        "n_epochs": 10,
+        "gamma": 0.99,
+        "gae_lambda": 0.95,
+        "clip_range": 0.15,
+        "ent_coef": 0.005,
+        "target_kl": 0.03,
+        "checkpoint_selection": "Use best/best_model.zip selected by validation reward; final_model.zip is the last iterate.",
     }
     (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     started = time.monotonic()
@@ -75,6 +103,7 @@ def main():
         train_env.close()
         eval_env.close()
     print(f"Saved {run_dir}; elapsed={elapsed:.1f}s; timesteps={model.num_timesteps}")
+    print(f"Validation-selected checkpoint: {run_dir / 'best' / 'best_model.zip'}")
 
 
 if __name__ == "__main__":
