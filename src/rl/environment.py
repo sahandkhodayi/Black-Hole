@@ -81,7 +81,13 @@ class PhotonTrajectoryEnv(gym.Env):
         target_u, target_v = float(self.target_u[next_index]), float(self.target_v[next_index])
         eu = (proposed_u - target_u) / self.u_scale
         ev = (proposed_v - target_v) / self.v_scale
-        reward = float(1.0 - 4.0 * (eu * eu + ev * ev))
+
+        # A bounded, non-negative reward avoids the large negative episode
+        # returns produced by the previous quadratic reward after policy drift.
+        # It remains smooth and strictly prefers smaller normalized state error.
+        squared_error = eu * eu + ev * ev
+        reward = float(1.0 / (1.0 + squared_error))
+
         self.u, self.v, self.index = proposed_u, proposed_v, next_index
         terminated = self.index == len(self.phi) - 1
         self._done = bool(terminated)
@@ -89,5 +95,6 @@ class PhotonTrajectoryEnv(gym.Env):
                 "reference_u": target_u, "reference_v": target_v,
                 "predicted_u": proposed_u, "predicted_v": proposed_v,
                 "u_abs_error": abs(proposed_u - target_u),
-                "v_abs_error": abs(proposed_v - target_v)}
+                "v_abs_error": abs(proposed_v - target_v),
+                "normalized_squared_error": squared_error}
         return self._obs(), reward, terminated, False, info
