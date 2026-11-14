@@ -1,12 +1,10 @@
 # Black Hole Lab
 
-A numerical-physics project studying photon trajectories and gravitational light bending around a Schwarzschild black hole, with a later research goal of learning trajectory generation through reinforcement learning.
+A numerical-physics and machine-learning prototype studying photon trajectories and gravitational light bending around a Schwarzschild black hole.
 
 ## Start here
 
-**[Open the RL Learning Guidebook](GUIDEBOOK.md)**
-
-The guidebook is the active project manual. It teaches the work in small milestones, asks you to implement the important pieces yourself, gives progressive hints, and defines what to inspect before moving on. It deliberately does not hand you a complete RL agent.
+**[Open the RL presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md)** for the working prototype's installation, timed training, evaluation, and plotting commands. The [RL Learning Guidebook](GUIDEBOOK.md) remains the deeper theory and research-design reference.
 
 ## Current repository capabilities
 
@@ -15,6 +13,7 @@ The guidebook is the active project manual. It teaches the work in small milesto
 - Packed trajectory dataset generation and inspection.
 - Reproducible whole-trajectory train/validation/test splitting.
 - Numerical diagnostics, plots, weak-field comparison, and tests.
+- Initial teacher-guided PPO environment, training, evaluation, and run-comparison scripts (presentation/rl-prototype branch).
 
 ## Quick start
 
@@ -40,7 +39,7 @@ The former long README has been preserved at [docs/PROJECT_REFERENCE.md](docs/PR
 
 ## RL presentation prototype
 
-An initial teacher-guided PPO trajectory-tracking prototype is available in `src/rl/`. See [the two-day presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md) for installation, timed training runs, evaluation, and plots. This is an experimental prototype; run it locally and report only measured results.
+The teacher-guided PPO trajectory-tracking prototype is available in `src/rl/`. See [the presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md) for timed training runs, evaluation, and plots. This is an experimental prototype; run it locally and report only measured results.
 
 ## Research scope
 
