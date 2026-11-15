@@ -20,15 +20,15 @@ The uploaded comparison chart shows approximately:
 
 | Metric | Initial policy | Trained policy | Relative reduction |
 |---|---:|---:|---:|
-| Mean RMSE (u) | 0.159 | 0.1039 | 34.7% |
-| Mean RMSE (v) | 0.111 | 0.0679 | 38.8% |
+| Mean RMSE \(u\) | 0.159 | 0.1039 | 34.7% |
+| Mean RMSE \(v\) | 0.111 | 0.0679 | 38.8% |
 
 The initial chart values are read approximately from the plotted bars. The
 trained values below are calculated directly from the five per-ray CSV values.
 
 ## Trained policy: per-ray results
 
-| Case ID | Closest approach (r_0/r_s) | RMSE (u) | RMSE (v) |
+| Case ID | Closest approach \(r_0/r_s\) | RMSE \(u\) | RMSE \(v\) |
 |---:|---:|---:|---:|
 | 4 | 10.3103 | 0.10618 | 0.04269 |
 | 27 | 2.5379 | 0.13077 | 0.13932 |
