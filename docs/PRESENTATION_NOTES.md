@@ -38,27 +38,27 @@ simulation.
 
 Use normalized units with Schwarzschild radius \(r_s=1\). Define
 
-\\[
+\[
 u(\phi)=\frac{1}{r(\phi)}.
-]
+\]
 
 The orbit equation in this project is
 
-\\[
+\[
 \frac{d^2u}{d\phi^2}+u=\frac{3}{2}u^2.
-]
+\]
 
-Let (v=du/d\phi), giving
+Let \(v=du/d\phi\), giving
 
-\\[
+\[
 u'=v,\qquad v'=\frac{3}{2}u^2-u.
-]
+\]
 
 At closest approach \(r_0\),
 
-\\[
+\[
 u(0)=\frac{1}{r_0},\qquad v(0)=0.
-]
+\]
 
 The event horizon is at \(r=1\); the photon sphere is at \(r=1.5\). The
 reference solver integrates escaping rays until \(u\) approaches zero.
@@ -80,31 +80,31 @@ information and make evaluation too optimistic.
 
 The policy observation is
 
-\\[
+\[
 o_t=\left[\frac{r_0}{12},\frac{\phi_t}{3},
 \frac{u_t}{0.5},\frac{v_t}{0.2}\right].
-]
+\]
 
 The continuous action is (a_t\in[-1,1]^2), decoded as
 
-\\[
+\[
 u_{t+1}^{(p)}=0.25(a_1+1),\qquad
 v_{t+1}^{(p)}=0.2a_2.
-]
+\]
 
 The reference next state is used by the environment for reward, but it is not
 included in the policy observation. Define normalized tracking errors
 
-\\[
+\[
 e_u=\frac{u_{t+1}^{(p)}-u_{t+1}^{(*)}}{0.5},\qquad
 e_v=\frac{v_{t+1}^{(p)}-v_{t+1}^{(*)}}{0.2}.
-]
+\]
 
 The current reward is
 
-\\[
+\[
 R_t=\frac{1}{1+e_u^2+e_v^2}.
-]
+\]
 
 It lies in \((0,1]\): a perfect next-state prediction earns 1, and larger
 normalized errors earn less. The policy is autoregressive: its predicted
