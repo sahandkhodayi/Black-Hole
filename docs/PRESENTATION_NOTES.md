@@ -136,8 +136,7 @@ not directly comparable across rays of different lengths.
 ## Slide 6 — Results and interpretation
 
 Use the actual plots and metrics from
-[ P RESENTATION_RESULTS.md ](PRESENTATION_RESULTS.md) (remove spaces in the
-link if editing this file) and the generated files in `outputs/rl_figures/`.
+[PRESENTATION_RESULTS.md](PRESENTATION_RESULTS.md) and the generated files in `outputs/rl_figures/`.
 
 For the reported `stable_v1` run:
 - the held-out test set contains five complete rays;
