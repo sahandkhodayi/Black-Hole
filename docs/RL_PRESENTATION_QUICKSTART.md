@@ -1,79 +1,112 @@
-# Black Hole Lab — RL presentation prototype
+# Black Hole Lab — presentation quickstart
 
-## Research scope
+This guide is the shortest reliable route from a fresh clone to the PPO
+presentation figures. It assumes the repository's tracked dataset and split
+manifest are present.
 
-This is a **teacher-guided sequential trajectory-tracking experiment**. PPO
-observes only the initial radius, current angle, and its own current predicted
-state. The DOP853 next state is used to calculate reward and evaluation
-metrics; it is not included in the policy observation.
+## 1. What this experiment actually asks
 
-This prototype does not claim that the agent independently discovers general
-relativity, solves the geodesic ODE from first principles, or learns physical
-capture versus escape. Episodes end at the final sample of the reference ray.
+Can a PPO policy sequentially approximate photon states from a Schwarzschild
+black-hole scattering trajectory?
 
-## Install
+This is **teacher-guided sequential trajectory tracking**:
+- DOP853 generates the numerical reference trajectory.
+- The policy observes the initial radius, current angle, and its own current
+  predicted state.
+- The policy proposes the next inverse-radius state and its derivative.
+- The environment compares that proposal with the next DOP853 state to
+  calculate reward.
+- The next policy observation contains the policy's own prediction, not the
+  reference future state.
 
-~~~powershell
+It is not autonomous discovery of general relativity, an independent solver
+for the geodesic equation, or a learned capture/escape classifier.
+
+## 2. Install and verify
+
+PowerShell, from the repository root:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 python -m pip install -e ".[dev,rl]"
-~~~
+python -m pytest -q
+```
 
-## Train
+If you already have a working virtual environment, do not recreate it; just
+pull the latest commit and install the updated editable package.
 
-~~~powershell
-python -m rl.train --seconds 60 --seed 42 --run-name 1min
-python -m rl.train --seconds 600 --seed 42 --run-name 10min
-python -m rl.train --seconds 3600 --seed 42 --run-name 1hour
-~~~
+## 3. Reproduce the current stable experiment
 
-Runs save config, initial/final models, checkpoints, TensorBoard logs, and validation
-histories under outputs/rl_runs/<run-name>/. To watch training live in a second terminal:
+Do not reuse an old run folder: the reward and training configuration have
+changed over the project's iterations.
 
-~~~powershell
-tensorboard --logdir outputs/rl_runs
-~~~
+```powershell
+python -m rl.train --seconds 600 --seed 42 --run-name presentation_run
+```
 
-Then open the local TensorBoard address printed in the terminal (usually port 6006).
+The command saves artifacts under
+`outputs/rl_runs/presentation_run/`:
+- `initial_model.zip`: policy before learning;
+- `final_model.zip`: last policy before the time limit;
+- `best/best_model.zip`: checkpoint with the highest validation episode
+  reward observed by EvalCallback;
+- `evaluation/evaluations.npz`: validation reward history;
+- `config.json`: seed, split IDs, reward definition, and PPO settings.
 
-## Evaluate and compare
+The best checkpoint is not guaranteed to have the lowest test RMSE. Select it
+using validation only, then report test metrics once for the frozen choice.
 
-First evaluate the untrained policy as a baseline, then the trained policy:
+## 4. Evaluate the same held-out test rays
 
-~~~powershell
-python -m rl.evaluate --model outputs/rl_runs/1min/initial_model.zip --split test --output outputs/rl_runs/1min/evaluation_initial
-python -m rl.evaluate --model outputs/rl_runs/1min/final_model.zip --split test --output outputs/rl_runs/1min/evaluation_final
-python -m rl.evaluate --model outputs/rl_runs/1min/best/best_model.zip --split test
-python -m rl.evaluate --model outputs/rl_runs/10min/best/best_model.zip --split test
-python -m rl.compare outputs/rl_runs/1min outputs/rl_runs/10min outputs/rl_runs/1hour
-~~~
+```powershell
+python -m rl.evaluate --model outputs/rl_runs/presentation_run/initial_model.zip --split test --output outputs/rl_runs/presentation_run/evaluation_initial
+python -m rl.evaluate --model outputs/rl_runs/presentation_run/best/best_model.zip --split test --output outputs/rl_runs/presentation_run/evaluation_final
+```
 
-If best/best_model.zip does not exist because the run ended before its first
-evaluation, use final_model.zip.
+If `best/best_model.zip` was never created because training stopped before
+the first evaluation, use `final_model.zip` and state that it is the final
+checkpoint rather than a validation-selected checkpoint.
 
-## Simple presentation plots (recommended)\n\nYou do not need TensorBoard to prepare presentation figures. Follow [the simple plotting guide](SIMPLE_PRESENTATION_PLOTS.md), or after evaluating initial and final policies run:\n\n~~~powershell\npython -m rl.presentation_plots outputs/rl_runs/1min\n~~~\n\nThis creates readable PNGs for validation reward and held-out test error under `outputs/rl_figures/`.\n\n## Observation, action, and reward
+Each evaluation folder contains:
+- `trajectory_comparison.png`: orbit, inverse-radius, and derivative panels;
+- `metrics.csv`: one RMSE row per held-out ray;
+- `summary.json`: aggregate mean and median RMSE.
 
-Observation: [r0/12, phi/3, current_u/0.5, current_v/0.2].
+## 5. Make the two summary figures
 
-Action: two normalized continuous values mapped to u in [0, 0.5] and v in
-[-0.2, 0.2].
+```powershell
+python -m rl.presentation_plots outputs/rl_runs/presentation_run
+```
 
-For proposed state (u_p, v_p) and DOP853 target (u*, v*):
+Figures are written to `outputs/rl_figures/`:
+- `01_training_progress.png`: validation episode reward during training;
+- `02_test_error_comparison.png`: initial and trained policy RMSE on the
+  same test rays.
 
-~~~text
-e_u = (u_p - u*) / 0.5
-e_v = (v_p - v*) / 0.2
-reward = 1 - 4 * (e_u^2 + e_v^2)
-~~~
+For the trained bar to appear, the trained evaluation must be saved in
+`evaluation_final` (as in the command above).
 
-Reward near 1 means the proposed state is close to the reference. The teacher
-target is available to reward/evaluation code, not the policy observation.
+## 6. How to read the results
 
-## Presentation caveats
+- Higher validation reward is better, but reward is the sum of one-step
+  rewards over an episode. Rays have different sample counts, so compare
+  reward curves cautiously and use test RMSE as the main accuracy measure.
+- Lower RMSE is better.
+- Solid curves are DOP853; dashed curves are PPO.
+- PPO is rolled out autoregressively: each predicted state is fed back into
+  the next observation. Small one-step errors can therefore accumulate.
+- DOP853 is the reference solver and is expected to be more accurate on the
+  trajectories it integrated.
 
-- PPO may not improve monotonically.
-- A 1-minute run may only prove the pipeline executes, not convergence.
-- Compare all models on the same held-out test rays.
-- Include DOP853 as the numerical reference baseline.
-- Report actual wall-clock time, timesteps, seed, and measured errors.
-- If PPO does not improve, report that honestly.
-- The numerical solver is expected to remain more accurate on the trajectories
-  it directly integrated.
+## 7. Reproducibility checklist
+
+Record the Git commit, dataset and split manifest, seed, actual timesteps,
+wall-clock time, checkpoint name, and test metrics. Do not tune using the test
+set. Do not describe one seed or five test rays as broad proof of
+generalization.
+
+For the interpretation, slide plan, limitations, and likely questions, see
+[PRESENTATION_NOTES.md](PRESENTATION_NOTES.md). For the current observed
+stable_v1 result, see [PRESENTATION_RESULTS.md](PRESENTATION_RESULTS.md).
