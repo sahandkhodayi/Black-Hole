@@ -51,6 +51,7 @@ class LiveTrainingDashboard(BaseCallback):
             self.pause_button.on_clicked(self._toggle_pause)
             self.stop_button.on_clicked(self._request_stop)
             self.figure.canvas.mpl_connect("key_press_event", self._on_key)
+            self.figure.canvas.mpl_connect("close_event", self._on_window_close)
             self.figure.suptitle("Black Hole Lab | PPO training dashboard")
             self._refresh()
             plt.show(block=False)
@@ -69,6 +70,9 @@ class LiveTrainingDashboard(BaseCallback):
         self.paused = not self.paused
         if self.pause_button is not None:
             self.pause_button.label.set_text("Resume" if self.paused else "Pause")
+
+    def _on_window_close(self, _event=None):
+        self.stop_requested = True
 
     def _on_key(self, event):
         if event.key == " ":
