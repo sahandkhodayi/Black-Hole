@@ -29,3 +29,18 @@ def test_orbit_coordinates_use_inverse_radius(tmp_path: Path):
     assert y[0] == pytest.approx(0.0, abs=1e-7)
     assert x[1] == pytest.approx(0.0, abs=1e-7)
     assert y[1] == pytest.approx(5.0)
+
+
+def test_dashboard_report_uses_wall_clock_interval(tmp_path: Path):
+    dashboard = LiveTrainingDashboard(
+        tmp_path, None, [], interval_seconds=60, enabled=False
+    )
+    dashboard.last_report_time = 100.0
+
+    assert dashboard._report_due(159.9) is False
+    assert dashboard._report_due(160.0) is True
+
+
+def test_dashboard_rejects_nonpositive_report_interval(tmp_path: Path):
+    with pytest.raises(ValueError, match="interval_seconds must be positive"):
+        LiveTrainingDashboard(tmp_path, None, [], interval_seconds=0)
