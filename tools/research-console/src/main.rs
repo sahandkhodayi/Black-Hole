@@ -6,8 +6,8 @@ use std::{
     collections::VecDeque,
     env,
     fs::{self, File, OpenOptions},
-    io::{Read, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
+    io::{Read, Seek, SeekFrom},
+    path::PathBuf,
     process::{Child, Command, Stdio},
     time::{Duration, Instant},
 };
@@ -125,7 +125,7 @@ impl ResearchConsole {
             return Err(anyhow!("Seconds and evaluation frequency must be greater than zero."));
         }
         let run_name = self.run_name.trim();
-        if run_name.is_empty() || run_name.contains(['/', '\\']) || run_name.contains("..") {
+        if run_name.is_empty() || run_name.contains('/') || run_name.contains('\\') || run_name.contains("..") {
             return Err(anyhow!("Run name must be a simple folder name."));
         }
 
