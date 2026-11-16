@@ -65,18 +65,21 @@ class LiveTrainingDashboard(BaseCallback):
             self._request_stop()
 
     def _evaluate_validation(self):
+        # Access the underlying Gymnasium environment explicitly; wrapper
+        # attribute forwarding is not guaranteed across Gymnasium versions.
+        env = self.eval_env.unwrapped
         errors_u, errors_v = [], []
         first_ray = None
         for case_id in self.validation_ids:
-            obs, _ = self.eval_env.reset(options={"case_id": case_id})
-            ref_u = [float(self.eval_env.target_u[0])]
-            pred_u = [float(self.eval_env.u)]
-            ref_v = [float(self.eval_env.target_v[0])]
-            pred_v = [float(self.eval_env.v)]
+            obs, _ = env.reset(options={"case_id": case_id})
+            ref_u = [float(env.target_u[0])]
+            pred_u = [float(env.u)]
+            ref_v = [float(env.target_v[0])]
+            pred_v = [float(env.v)]
             done = False
             while not done:
                 action, _ = self.model.predict(obs, deterministic=True)
-                obs, _, terminated, truncated, info = self.eval_env.step(action)
+                obs, _, terminated, truncated, info = env.step(action)
                 done = terminated or truncated
                 ref_u.append(info["reference_u"])
                 pred_u.append(info["predicted_u"])
@@ -85,7 +88,7 @@ class LiveTrainingDashboard(BaseCallback):
             errors_u.append(float(np.sqrt(np.mean((np.asarray(pred_u)-ref_u)**2))))
             errors_v.append(float(np.sqrt(np.mean((np.asarray(pred_v)-ref_v)**2))))
             if first_ray is None:
-                first_ray = (np.asarray(self.eval_env.phi).copy(), np.asarray(ref_u), np.asarray(pred_u))
+                first_ray = (np.asarray(env.phi).copy(), np.asarray(ref_u), np.asarray(pred_u))
         return float(np.mean(errors_u)), float(np.mean(errors_v)), first_ray
 
     def _refresh(self):
