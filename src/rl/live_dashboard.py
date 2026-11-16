@@ -187,21 +187,19 @@ class LiveTrainingDashboard(BaseCallback):
             phi, ref_u, pred_u, ref_v, pred_v, r0, case_id = self.latest_ray
             ref_x, ref_y = self._orbit_xy(phi[:len(ref_u)], ref_u)
             pred_x, pred_y = self._orbit_xy(phi[:len(pred_u)], pred_u)
-            ref_line, = orbit_ax.plot([], [], color="#50c8ff", linewidth=2.0,
-                                      label="DOP853 reference")
-            pred_line, = orbit_ax.plot([], [], color="#ff6b8a", linewidth=1.8,
-                                       linestyle="--", label="PPO policy")
-            marker, = orbit_ax.plot([], [], "o", color="#ffffff",
-                                    markeredgecolor="#ffcf70", markersize=7,
-                                    label="Current ray position")
-            self.orbit_lines = (ref_line, pred_line, ref_x, ref_y, pred_x, pred_y)
-            self.orbit_marker = marker
-            self.orbit_frame = 1
+            # Draw complete validation rollouts immediately. Incrementally
+            # revealing thousands of points made the orbit look frozen and
+            # forced unnecessary GUI updates during PPO training.
+            orbit_ax.plot(ref_x, ref_y, color="#50c8ff", linewidth=2.0,
+                          label="DOP853 reference")
+            orbit_ax.plot(pred_x, pred_y, color="#ff6b8a", linewidth=1.8,
+                          linestyle="--", label="PPO policy")
+            self.orbit_lines = None
+            self.orbit_marker = None
             orbit_ax.legend(loc="upper right", fontsize=8, facecolor="#111827",
                             labelcolor="white")
             orbit_ax.text(.02, .02, f"Validation case {case_id} | r₀ = {r0:.3f} r_s",
                           transform=orbit_ax.transAxes, color="white", fontsize=9)
-            self._animate_orbit()
         else:
             orbit_ax.text(.5, .5, "Waiting for first validation rollout...",
                           transform=orbit_ax.transAxes, color="white",
@@ -299,12 +297,9 @@ class LiveTrainingDashboard(BaseCallback):
             for action in np.asarray(actions).reshape(-1, 2):
                 self.action_samples.append(action.copy())
 
-        # Animate the ray occasionally instead of forcing a GUI redraw every
-        # 25 environment steps. The full dashboard is refreshed separately.
-        if (self.enabled and self.figure is not None
-                and self.num_timesteps % max(128, self.refresh_freq // 4) == 0):
-            self._animate_orbit()
-            self.figure.canvas.draw_idle()
+        # Only pump GUI events occasionally. All expensive plotting happens
+        # at the configured dashboard refresh interval, not during each step.
+        if self.enabled and self.figure is not None and self.num_timesteps % 512 == 0:
             import matplotlib.pyplot as plt
             plt.pause(.001)
         while self.enabled and self.paused and not self.stop_requested:
