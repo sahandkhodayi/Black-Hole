@@ -296,9 +296,9 @@ impl ResearchConsole {
                             Some([r * phi.cos(), r * phi.sin()])
                         } else { None });
                     plot_ui.line(Line::new(PlotPoints::from_iter(ref_points)).name("DOP853 reference")
-                        .color(Color32::from_rgb(65, 190, 255)).width(2.2));
+                        .color(Color32::from_rgb(65, 190, 255)).width(2.2_f32));
                     plot_ui.line(Line::new(PlotPoints::from_iter(pred_points)).name("PPO policy")
-                        .color(Color32::from_rgb(255, 105, 138)).width(2.0));
+                        .color(Color32::from_rgb(255, 105, 138)).width(2.0_f32));
                 }
             });
         if let Some(ray) = &self.ray {
@@ -371,7 +371,7 @@ impl eframe::App for ResearchConsole {
                 ui.separator();
                 ui.label(RichText::new(self.status.to_uppercase()).strong());
                 ui.separator();
-                ui.label(format!("{:,} steps", self.timesteps));
+                ui.label(format!("{} steps", self.timesteps));
                 ui.separator();
                 ui.label(format!("{:.1}s", self.elapsed));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
