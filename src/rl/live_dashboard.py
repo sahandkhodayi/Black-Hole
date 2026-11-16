@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
+from rl.reporting import report_is_due
 
 
 class LiveTrainingDashboard(BaseCallback):
@@ -314,8 +315,7 @@ class LiveTrainingDashboard(BaseCallback):
 
     def _report_due(self, now):
         """Return whether the wall-clock reporting interval has elapsed."""
-        return (self.last_report_time is None
-                or now - self.last_report_time >= self.interval_seconds)
+        return report_is_due(self.last_report_time, now, self.interval_seconds)
 
     def _on_rollout_start(self):
         values = getattr(self.model.logger, "name_to_value", {})
