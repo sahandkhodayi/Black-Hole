@@ -342,11 +342,16 @@ class LiveTrainingDashboard(BaseCallback):
         if report_due:
             self._refresh()
 
-    def _on_training_end(self):
+    def save_final_snapshot(self):
+        """Save and close the final dashboard once, including after Ctrl+C."""
+        if not self.enabled or self.figure is None:
+            return
         self._refresh()
-        if self.enabled and self.figure is not None:
-            # One final snapshot is useful for the presentation; save only once.
-            self.figure.savefig(self.run_dir / "live_dashboard.png", dpi=100)
-            import matplotlib.pyplot as plt
-            plt.ioff()
-            plt.close(self.figure)
+        self.figure.savefig(self.run_dir / "live_dashboard.png", dpi=100)
+        import matplotlib.pyplot as plt
+        plt.ioff()
+        plt.close(self.figure)
+        self.figure = None
+
+    def _on_training_end(self):
+        self.save_final_snapshot()
