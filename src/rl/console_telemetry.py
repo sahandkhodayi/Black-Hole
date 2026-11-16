@@ -34,6 +34,7 @@ class ConsoleTelemetryCallback(BaseCallback):
         self.stop_requested = False
         self.paused = False
         self._events_handle = None
+        self.latest_episode_reward = None
 
     def _emit(self, event):
         event.setdefault("timesteps", int(self.num_timesteps))
@@ -102,6 +103,10 @@ class ConsoleTelemetryCallback(BaseCallback):
         self._emit({"type": "status", "status": "running"})
 
     def _on_step(self):
+        for info in self.locals.get("infos", []):
+            episode = info.get("episode")
+            if episode and "r" in episode:
+                self.latest_episode_reward = float(episode["r"])
         if self.num_timesteps - self.last_control_poll >= self.control_poll_freq:
             self.last_control_poll = self.num_timesteps
             self._read_control()
@@ -116,9 +121,11 @@ class ConsoleTelemetryCallback(BaseCallback):
         value_loss = values.get("train/value_loss")
         event = {
             "type": "metrics",
-            "policy_loss": float(policy_loss) if policy_loss is not None else None,
-            "value_loss": float(value_loss) if value_loss is not None else None,
+            "episode_reward": self.latest_episode_reward,
+            "policy_loss": float(policy_loss) if policy_loss is not None and np.isfinite(policy_loss) else None,
+            "value_loss": float(value_loss) if value_loss is not None and np.isfinite(value_loss) else None,
         }
+        self.latest_episode_reward = None
         if self.num_timesteps - self.last_eval_step >= self.eval_freq:
             rmse_u, rmse_v, ray = self._validation_payload()
             event.update({
