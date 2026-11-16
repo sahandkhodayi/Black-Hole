@@ -51,3 +51,12 @@ The RL environment, PPO training script, evaluation script, and experiment compa
 ## Live RL research dashboard
 
 Watch PPO training in real time, inspect reward/loss/validation-error curves, compare a live validation ray against DOP853, and stop safely at any time: [Live training dashboard guide](docs/LIVE_TRAINING_DASHBOARD.md).
+
+
+## Native Rust research console
+
+An optional native desktop GUI is available in `tools/research-console/`.
+It keeps the Python/SciPy/Gymnasium/Stable-Baselines3 engine intact and uses a
+small JSONL telemetry/control bridge for responsive visualization. See the
+[Native Rust research console guide](docs/RUST_RESEARCH_CONSOLE.md) for setup,
+launch instructions, and the architecture.
