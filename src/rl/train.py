@@ -107,14 +107,14 @@ def main():
                     progress_bar=False, tb_log_name=name)
     except KeyboardInterrupt:
         interrupted = True
-        print("\\nTraining interrupted by user; saving the current policy...")
+        print("\nTraining interrupted by user; saving the current policy...")
     finally:
         elapsed = time.monotonic() - started
         model.save(run_dir / "final_model")
         config["seconds_actual"] = elapsed
         config["timesteps_actual"] = int(model.num_timesteps)
         config["stopped_early"] = bool(interrupted or dashboard.stop_requested)
-        (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\\n", encoding="utf-8")
+        (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
         train_env.close()
         eval_env.close()
     print(f"Saved {run_dir}; elapsed={elapsed:.1f}s; timesteps={model.num_timesteps}")
