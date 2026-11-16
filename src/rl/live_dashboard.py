@@ -26,6 +26,7 @@ class LiveTrainingDashboard(BaseCallback):
         self.eval_steps, self.rmse_u, self.rmse_v = [], [], []
         self.last_eval_step = -self.eval_freq
         self.stop_requested = False
+        self.paused = False
         self.enabled = bool(enabled)
         self.figure = None
         self.axes = None
@@ -42,8 +43,11 @@ class LiveTrainingDashboard(BaseCallback):
             self.figure, self.axes = plt.subplots(2, 2, figsize=(12, 8))
             self.figure.canvas.manager.set_window_title("Black Hole Lab — Live PPO")
             self.figure.subplots_adjust(bottom=0.13, hspace=0.32, wspace=0.28)
-            button_ax = self.figure.add_axes([0.39, 0.025, 0.22, 0.055])
-            self.stop_button = Button(button_ax, "Stop & save")
+            pause_ax = self.figure.add_axes([0.25, 0.025, 0.20, 0.055])
+            stop_ax = self.figure.add_axes([0.55, 0.025, 0.20, 0.055])
+            self.pause_button = Button(pause_ax, "Pause")
+            self.stop_button = Button(stop_ax, "Stop & save")
+            self.pause_button.on_clicked(self._toggle_pause)
             self.stop_button.on_clicked(self._request_stop)
             self.figure.canvas.mpl_connect("key_press_event", self._on_key)
             self.figure.suptitle("Black Hole Lab | PPO training dashboard")
@@ -60,7 +64,15 @@ class LiveTrainingDashboard(BaseCallback):
     def _request_stop(self, _event=None):
         self.stop_requested = True
 
+    def _toggle_pause(self, _event=None):
+        self.paused = not self.paused
+        if self.pause_button is not None:
+            self.pause_button.label.set_text("Resume" if self.paused else "Pause")
+
     def _on_key(self, event):
+        if event.key == " ":
+            self._toggle_pause()
+            return
         if event.key in {"q", "escape"}:
             self._request_stop()
 
@@ -160,8 +172,13 @@ class LiveTrainingDashboard(BaseCallback):
                 self.reward_steps.append(self.num_timesteps)
                 self.reward_values.append(reward)
         # Pump GUI events during collection so Stop/Q works mid-rollout.
-        if self.enabled and self.figure is not None and self.num_timesteps % 25 == 0:
-            self.figure.canvas.flush_events()
+        if self.enabled and self.figure is not None:
+            if self.num_timesteps % 25 == 0:
+                self.figure.canvas.flush_events()
+            while self.paused and not self.stop_requested:
+                import matplotlib.pyplot as plt
+                self.figure.canvas.flush_events()
+                plt.pause(0.1)
         if self.stop_requested:
             return False
         return True
