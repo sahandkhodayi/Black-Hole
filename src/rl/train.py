@@ -113,13 +113,22 @@ def main():
         print("\nTraining interrupted by user; saving the current policy...")
     finally:
         elapsed = time.monotonic() - started
-        model.save(run_dir / "final_model")
-        config["seconds_actual"] = elapsed
-        config["timesteps_actual"] = int(model.num_timesteps)
-        config["stopped_early"] = bool(interrupted or dashboard.stop_requested)
-        (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-        train_env.close()
-        eval_env.close()
+        try:
+            model.save(run_dir / "final_model")
+            config["seconds_actual"] = elapsed
+            config["timesteps_actual"] = int(model.num_timesteps)
+            config["stopped_early"] = bool(interrupted or dashboard.stop_requested)
+            (run_dir / "config.json").write_text(
+                json.dumps(config, indent=2) + "\n", encoding="utf-8"
+            )
+        finally:
+            # SB3 may skip callback shutdown when KeyboardInterrupt propagates.
+            # Save the final plot explicitly; this is idempotent after normal exit.
+            try:
+                dashboard.save_final_snapshot()
+            finally:
+                train_env.close()
+                eval_env.close()
     print(f"Saved {run_dir}; elapsed={elapsed:.1f}s; timesteps={model.num_timesteps}")
     print(f"Validation-selected checkpoint: {run_dir / 'best' / 'best_model.zip'}")
 
