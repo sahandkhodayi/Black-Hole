@@ -206,7 +206,7 @@ impl ResearchConsole {
                         // The Python writer may be in the middle of appending a
                         // larger validation record. Consume only newline-terminated
                         // records and retry any partial tail on the next poll.
-                        if let Some(last_newline) = chunk.rfind('\\n') {
+                        if let Some(last_newline) = chunk.rfind('\n') {
                             let complete = &chunk[..=last_newline];
                             self.event_offset += complete.len() as u64;
                             for line in complete.lines().filter(|line| !line.trim().is_empty()) {
