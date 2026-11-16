@@ -26,6 +26,8 @@ struct TelemetryEvent {
     value_loss: Option<f64>,
     validation_rmse_u: Option<f64>,
     validation_rmse_v: Option<f64>,
+    action_hist_u: Vec<[f64; 2]>,
+    action_hist_v: Vec<[f64; 2]>,
     ray: Option<RayData>,
 }
 
@@ -60,6 +62,8 @@ struct ResearchConsole {
     rmse_u: VecDeque<[f64; 2]>,
     rmse_v: VecDeque<[f64; 2]>,
     ray: Option<RayData>,
+    action_hist_u: Vec<[f64; 2]>,
+    action_hist_v: Vec<[f64; 2]>,
     error: Option<String>,
 }
 
@@ -89,6 +93,8 @@ impl ResearchConsole {
             rmse_u: VecDeque::new(),
             rmse_v: VecDeque::new(),
             ray: None,
+            action_hist_u: Vec::new(),
+            action_hist_v: Vec::new(),
             error: None,
         }
     }
@@ -107,6 +113,8 @@ impl ResearchConsole {
         self.rmse_u.clear();
         self.rmse_v.clear();
         self.ray = None;
+        self.action_hist_u.clear();
+        self.action_hist_v.clear();
         self.error = None;
     }
 
@@ -233,6 +241,8 @@ impl ResearchConsole {
         if let Some(value) = event.validation_rmse_u { Self::push_point(&mut self.rmse_u, [x, value]); }
         if let Some(value) = event.validation_rmse_v { Self::push_point(&mut self.rmse_v, [x, value]); }
         if event.ray.is_some() { self.ray = event.ray; }
+        if !event.action_hist_u.is_empty() { self.action_hist_u = event.action_hist_u; }
+        if !event.action_hist_v.is_empty() { self.action_hist_v = event.action_hist_v; }
         if let Some(status) = event.status {
             self.status = match status.as_str() {
                 "running" if self.status != "Paused" => "Running".into(),
@@ -292,6 +302,41 @@ impl ResearchConsole {
         } else {
             ui.weak("Waiting for the first validation evaluation…");
         }
+    }
+
+    fn action_distribution_plot(&self, ui: &mut egui::Ui) {
+        ui.label(RichText::new("Recent normalized action distribution").strong());
+        Plot::new("action_distribution").height(155.0)
+            .legend(Legend::default()).show(ui, |plot_ui| {
+                if !self.action_hist_u.is_empty() {
+                    plot_ui.line(Line::new("u action", PlotPoints::from_iter(
+                        self.action_hist_u.iter().copied()
+                    )).color(Color32::from_rgb(65, 160, 235)));
+                }
+                if !self.action_hist_v.is_empty() {
+                    plot_ui.line(Line::new("v action", PlotPoints::from_iter(
+                        self.action_hist_v.iter().copied()
+                    )).color(Color32::from_rgb(238, 145, 90)));
+                }
+            });
+    }
+
+    fn ray_component_plot(&self, ui: &mut egui::Ui, title: &str,
+                          reference: &[f64], predicted: &[f64]) {
+        ui.label(RichText::new(title).strong());
+        Plot::new(title).height(155.0).legend(Legend::default())
+            .show(ui, |plot_ui| {
+                if let Some(ray) = &self.ray {
+                    let ref_points = ray.phi.iter().zip(reference.iter())
+                        .map(|(x, y)| [*x, *y]);
+                    let pred_points = ray.phi.iter().zip(predicted.iter())
+                        .map(|(x, y)| [*x, *y]);
+                    plot_ui.line(Line::new("DOP853", PlotPoints::from_iter(ref_points))
+                        .color(Color32::from_rgb(65, 190, 255)));
+                    plot_ui.line(Line::new("PPO", PlotPoints::from_iter(pred_points))
+                        .color(Color32::from_rgb(255, 105, 138)));
+                }
+            });
     }
 
     fn show_error(&mut self, ui: &mut egui::Ui) {
@@ -373,13 +418,25 @@ impl eframe::App for ResearchConsole {
                 ui.separator();
                 egui::Grid::new("metric_grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
                     Self::line(ui, "Episode reward", &self.rewards, 155.0);
-                    Self::line(ui, "Validation RMSE — u", &self.rmse_u, 155.0);
+                    self.action_distribution_plot(ui);
                     ui.end_row();
                     Self::line(ui, "Policy-gradient loss", &self.policy_losses, 155.0);
+                    Self::line(ui, "Value-function loss", &self.value_losses, 155.0);
+                    ui.end_row();
+                    Self::line(ui, "Validation RMSE — u", &self.rmse_u, 155.0);
                     Self::line(ui, "Validation RMSE — v", &self.rmse_v, 155.0);
                     ui.end_row();
-                    Self::line(ui, "Value-function loss", &self.value_losses, 155.0);
-                    ui.label("Reference and prediction curves are updated at validation intervals.");
+                    if let Some(ray) = &self.ray {
+                        let ref_u = ray.reference_u.clone();
+                        let pred_u = ray.predicted_u.clone();
+                        let ref_v = ray.reference_v.clone();
+                        let pred_v = ray.predicted_v.clone();
+                        self.ray_component_plot(ui, "Inverse radius u(φ)", &ref_u, &pred_u);
+                        self.ray_component_plot(ui, "Radial derivative v(φ)", &ref_v, &pred_v);
+                    } else {
+                        ui.label("u(φ) reference / prediction");
+                        ui.label("v(φ) reference / prediction");
+                    }
                     ui.end_row();
                 });
             });
