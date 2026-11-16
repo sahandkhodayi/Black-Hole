@@ -13,21 +13,21 @@ from stable_baselines3.common.callbacks import BaseCallback
 
 
 class LiveTrainingDashboard(BaseCallback):
-    def __init__(self, run_dir, eval_env, validation_ids, *, eval_freq=2048,
-                 refresh_freq=1024, window=100, enabled=True, verbose=0):
+    def __init__(self, run_dir, eval_env, validation_ids, *, interval_seconds=60,
+                 window=100, enabled=True, verbose=0):
         super().__init__(verbose)
         self.run_dir = Path(run_dir)
         self.eval_env = eval_env
         self.validation_ids = [int(x) for x in validation_ids]
-        self.eval_freq = max(1, int(eval_freq))
-        self.refresh_freq = max(1, int(refresh_freq))
+        self.interval_seconds = float(interval_seconds)
+        if self.interval_seconds <= 0:
+            raise ValueError("interval_seconds must be positive")
         self.episode_rewards = deque(maxlen=window)
         self.reward_steps, self.reward_values = [], []
         self.loss_steps, self.policy_losses, self.value_losses = [], [], []
         self.eval_steps, self.rmse_u, self.rmse_v = [], [], []
         self.action_samples = deque(maxlen=5000)
-        self.last_eval_step = -self.eval_freq
-        self.last_dashboard_refresh = -self.refresh_freq
+        self.last_report_time = None
         self.stop_requested = False
         self.paused = False
         self.enabled = bool(enabled)
@@ -43,6 +43,8 @@ class LiveTrainingDashboard(BaseCallback):
 
     def _on_training_start(self):
         self.started = time.monotonic()
+        # Report once at the first rollout boundary, then use wall-clock time.
+        self.last_report_time = self.started - self.interval_seconds
         self.run_dir.mkdir(parents=True, exist_ok=True)
         if self.enabled:
             import matplotlib.pyplot as plt
@@ -310,6 +312,11 @@ class LiveTrainingDashboard(BaseCallback):
             return False
         return True
 
+    def _report_due(self, now):
+        """Return whether the wall-clock reporting interval has elapsed."""
+        return (self.last_report_time is None
+                or now - self.last_report_time >= self.interval_seconds)
+
     def _on_rollout_start(self):
         values = getattr(self.model.logger, "name_to_value", {})
         policy = values.get("train/policy_gradient_loss")
@@ -319,22 +326,21 @@ class LiveTrainingDashboard(BaseCallback):
             self.policy_losses.append(float(policy))
             self.value_losses.append(float(value))
 
+        now = time.monotonic()
+        report_due = self.enabled and self._report_due(now)
         val_u = val_v = None
-        if self.enabled and self.num_timesteps - self.last_eval_step >= self.eval_freq:
+        if report_due:
             val_u, val_v, self.latest_ray = self._evaluate_validation()
             self.eval_steps.append(self.num_timesteps)
             self.rmse_u.append(val_u)
             self.rmse_v.append(val_v)
-            self.last_eval_step = self.num_timesteps
+            self.last_report_time = now
 
         latest_reward = self.reward_values[-1] if self.reward_values else None
         self._write_history(latest_reward, policy, value, val_u, val_v)
-        # Rebuild the graph panels only periodically (or immediately after a
-        # fresh validation result), not after every PPO rollout.
-        if (val_u is not None
-                or self.num_timesteps - self.last_dashboard_refresh >= self.refresh_freq):
+        # Validation and full graph redraw happen at most once per time interval.
+        if report_due:
             self._refresh()
-            self.last_dashboard_refresh = self.num_timesteps
 
     def _on_training_end(self):
         self._refresh()
