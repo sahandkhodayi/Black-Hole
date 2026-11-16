@@ -149,7 +149,7 @@ class LiveTrainingDashboard(BaseCallback):
             trajectory_ax.plot(phi, pred_u, "--", label="PPO prediction")
             trajectory_ax.legend()
         trajectory_ax.set(title="Live validation ray: inverse radius",
-                          xlabel="Sample index", ylabel="u = 1/r")
+                          xlabel="phi (radians)", ylabel="u = 1/r")
         trajectory_ax.grid(alpha=.25)
 
         state = ("STOP REQUESTED — saving after current step" if self.stop_requested
