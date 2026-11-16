@@ -29,9 +29,9 @@ def main():
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
     parser.add_argument("--live", action="store_true",
                         help="Open the interactive live dashboard (Stop & save button or Q key).")
-    parser.add_argument("--live-eval-freq", type=int, default=2048,
+    parser.add_argument("--live-eval-freq", type=int, default=4096,
                         help="Evaluate validation rays every N timesteps in live mode.")
-    parser.add_argument("--live-refresh-freq", type=int, default=1024,
+    parser.add_argument("--live-refresh-freq", type=int, default=4096,
                         help="Refresh the full dashboard every N timesteps (lower is smoother, higher is lighter).")
     args = parser.parse_args()
     if args.seconds <= 0:
