@@ -147,7 +147,8 @@ class LiveTrainingDashboard(BaseCallback):
                           xlabel="Sample index", ylabel="u = 1/r")
         trajectory_ax.grid(alpha=.25)
 
-        state = "STOP REQUESTED — saving after current step" if self.stop_requested else "RUNNING"
+        state = ("STOP REQUESTED — saving after current step" if self.stop_requested
+                 else "PAUSED" if self.paused else "RUNNING")
         elapsed = time.monotonic() - self.started if self.started else 0
         self.figure.suptitle(
             f"Black Hole Lab | {state} | {self.num_timesteps:,} steps | {elapsed:.0f}s")
