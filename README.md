@@ -46,3 +46,8 @@ The teacher-guided PPO trajectory-tracking prototype is available in `src/rl/`. 
 The target is sequential generation of escaping photon trajectories. The reference solver supplies ground-truth curves for evaluation and (in the first proposed experiment) teacher-guided reward. PPO is a candidate first algorithm, not the research question itself. The guidebook discusses the difference between teacher-guided trajectory imitation through RL and a policy that independently decides when a ray has escaped.
 
 The RL environment, PPO training script, evaluation script, and experiment comparison utility are included on the default branch. They are a teacher-guided tracking baseline, not a claim of autonomous physics discovery.
+
+
+## Live RL research dashboard
+
+Watch PPO training in real time, inspect reward/loss/validation-error curves, compare a live validation ray against DOP853, and stop safely at any time: [Live training dashboard guide](docs/LIVE_TRAINING_DASHBOARD.md).
