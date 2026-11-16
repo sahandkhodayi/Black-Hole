@@ -13,13 +13,14 @@ from stable_baselines3.common.callbacks import BaseCallback
 
 
 class LiveTrainingDashboard(BaseCallback):
-    def __init__(self, run_dir, eval_env, validation_ids, *, eval_freq=1024,
-                 window=100, enabled=True, verbose=0):
+    def __init__(self, run_dir, eval_env, validation_ids, *, eval_freq=2048,
+                 refresh_freq=1024, window=100, enabled=True, verbose=0):
         super().__init__(verbose)
         self.run_dir = Path(run_dir)
         self.eval_env = eval_env
         self.validation_ids = [int(x) for x in validation_ids]
         self.eval_freq = max(1, int(eval_freq))
+        self.refresh_freq = max(1, int(refresh_freq))
         self.episode_rewards = deque(maxlen=window)
         self.reward_steps, self.reward_values = [], []
         self.loss_steps, self.policy_losses, self.value_losses = [], [], []
@@ -47,7 +48,8 @@ class LiveTrainingDashboard(BaseCallback):
             from matplotlib.widgets import Button
             from matplotlib.patches import Circle
             plt.ion()
-            self.figure = plt.figure(figsize=(16, 10), constrained_layout=False)
+            # A smaller canvas reduces GUI rendering cost, especially on laptops.
+            self.figure = plt.figure(figsize=(13, 8), dpi=85, constrained_layout=False)
             self.figure.canvas.manager.set_window_title("Black Hole Lab | Live Research Console")
             grid = self.figure.add_gridspec(
                 4, 3, left=.055, right=.98, top=.91, bottom=.13,
@@ -259,7 +261,7 @@ class LiveTrainingDashboard(BaseCallback):
         self.figure.canvas.draw_idle()
         self.figure.canvas.flush_events()
         plt.pause(.001)
-        self.figure.savefig(self.run_dir / "live_dashboard.png", dpi=130)
+        # Do not write a PNG during training: disk rendering is expensive.
 
     def _animate_orbit(self):
         if self.orbit_lines is None or self.latest_ray is None:
@@ -296,10 +298,12 @@ class LiveTrainingDashboard(BaseCallback):
             for action in np.asarray(actions).reshape(-1, 2):
                 self.action_samples.append(action.copy())
 
-        if self.enabled and self.figure is not None and self.num_timesteps % 25 == 0:
+        # Animate the ray occasionally instead of forcing a GUI redraw every
+        # 25 environment steps. The full dashboard is refreshed separately.
+        if (self.enabled and self.figure is not None
+                and self.num_timesteps % max(128, self.refresh_freq // 4) == 0):
             self._animate_orbit()
             self.figure.canvas.draw_idle()
-            self.figure.canvas.flush_events()
             import matplotlib.pyplot as plt
             plt.pause(.001)
         while self.enabled and self.paused and not self.stop_requested:
@@ -329,11 +333,17 @@ class LiveTrainingDashboard(BaseCallback):
 
         latest_reward = self.reward_values[-1] if self.reward_values else None
         self._write_history(latest_reward, policy, value, val_u, val_v)
-        self._refresh()
+        # Rebuild the graph panels only periodically (or immediately after a
+        # fresh validation result), not after every PPO rollout.
+        if (val_u is not None or self.num_timesteps == 0
+                or self.num_timesteps % self.refresh_freq < 512):
+            self._refresh()
 
     def _on_training_end(self):
         self._refresh()
         if self.enabled and self.figure is not None:
+            # One final snapshot is useful for the presentation; save only once.
+            self.figure.savefig(self.run_dir / "live_dashboard.png", dpi=100)
             import matplotlib.pyplot as plt
             plt.ioff()
             plt.close(self.figure)
