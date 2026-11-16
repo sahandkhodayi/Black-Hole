@@ -110,3 +110,14 @@ generalization.
 For the interpretation, slide plan, limitations, and likely questions, see
 [PRESENTATION_NOTES.md](PRESENTATION_NOTES.md). For the current observed
 stable_v1 result, see [PRESENTATION_RESULTS.md](PRESENTATION_RESULTS.md).
+
+
+## 8. Watch PPO learn live
+
+For an interactive dashboard with episode reward, PPO losses, validation RMSE, and a live DOP853-versus-PPO ray, see [LIVE_TRAINING_DASHBOARD.md](LIVE_TRAINING_DASHBOARD.md). Start a long run with:
+
+```powershell
+python -m rl.train --seconds 3600 --seed 42 --run-name live_research_01 --live
+```
+
+Click **Stop & save** or press **Q** / **Esc** in the dashboard to stop early. Ctrl+C in the terminal also saves the current policy. The latest dashboard snapshot and CSV history are saved in the run folder.
