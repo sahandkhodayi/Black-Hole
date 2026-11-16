@@ -70,8 +70,9 @@ application on native Windows.
 5. Use **Pause**, **Resume**, or **Stop & save** in the toolbar.
 
 The console displays the DOP853 reference and PPO autoregressive prediction
-for the first validation case, plus episode reward, policy/value losses, and
-validation RMSE for u and v. Validation is evaluated at the configured
+for the first validation case, plus episode reward, recent action distributions,
+policy/value losses, validation RMSE for u and v, and the u(phi)/v(phi)
+reference-versus-prediction curves. Validation is evaluated at the configured
 interval; it is not recomputed on every GUI frame.
 
 Training stdout and stderr are captured in
