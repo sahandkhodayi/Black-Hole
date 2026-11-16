@@ -203,30 +203,35 @@ impl ResearchConsole {
                 if file.seek(SeekFrom::Start(self.event_offset)).is_ok() {
                     let mut chunk = String::new();
                     if file.read_to_string(&mut chunk).is_ok() {
-                        self.event_offset += chunk.len() as u64;
-                        for line in chunk.lines().filter(|line| !line.trim().is_empty()) {
-                            match serde_json::from_str::<TelemetryEvent>(line) {
-                                Ok(event) => self.apply_event(event),
-                                Err(error) => self.error = Some(format!("Telemetry parse error: {error}")),
+                        // The Python writer may be in the middle of appending a
+                        // larger validation record. Consume only newline-terminated
+                        // records and retry any partial tail on the next poll.
+                        if let Some(last_newline) = chunk.rfind('\\n') {
+                            let complete = &chunk[..=last_newline];
+                            self.event_offset += complete.len() as u64;
+                            for line in complete.lines().filter(|line| !line.trim().is_empty()) {
+                                match serde_json::from_str::<TelemetryEvent>(line) {
+                                    Ok(event) => self.apply_event(event),
+                                    Err(error) => self.error = Some(format!("Telemetry parse error: {error}")),
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        if let Some(child) = self.child.as_mut() {
-            match child.try_wait() {
-                Ok(Some(exit)) => {
-                    self.status = if exit.success() { "Finished".into() } else {
-                        format!("Python process exited with {exit}")
-                    };
-                    self.child = None;
-                }
-                Ok(None) => {}
-                Err(error) => {
-                    self.error = Some(format!("Could not inspect Python process: {error}"));
-                    self.child = None;
-                }
+        let child_state = self.child.as_mut().map(|child| child.try_wait());
+        match child_state {
+            Some(Ok(Some(exit))) => {
+                self.status = if exit.success() { "Finished".into() } else {
+                    format!("Python process exited with {exit}")
+                };
+                self.child = None;
+            }
+            Some(Ok(None)) | None => {}
+            Some(Err(error)) => {
+                self.error = Some(format!("Could not inspect Python process: {error}"));
+                self.child = None;
             }
         }
     }
