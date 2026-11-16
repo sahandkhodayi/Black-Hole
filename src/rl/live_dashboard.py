@@ -128,7 +128,8 @@ class LiveTrainingDashboard(BaseCallback):
                 # env.phi is the complete ray angle array; retain the actual
                 # validation case ID and closest-approach radius for display.
                 first_ray = (np.asarray(env.phi).copy(), np.asarray(ref_u),
-                             np.asarray(pred_u), float(env.r0), int(case_id))
+                             np.asarray(pred_u), np.asarray(ref_v), np.asarray(pred_v),
+                             float(env.r0), int(case_id))
         return float(np.mean(errors_u)), float(np.mean(errors_v)), first_ray
 
     @staticmethod
@@ -180,7 +181,7 @@ class LiveTrainingDashboard(BaseCallback):
         self.orbit_lines = None
         self.orbit_marker = None
         if self.latest_ray is not None:
-            phi, ref_u, pred_u, r0, case_id = self.latest_ray
+            phi, ref_u, pred_u, ref_v, pred_v, r0, case_id = self.latest_ray
             ref_x, ref_y = self._orbit_xy(phi[:len(ref_u)], ref_u)
             pred_x, pred_y = self._orbit_xy(phi[:len(pred_u)], pred_u)
             ref_line, = orbit_ax.plot([], [], color="#50c8ff", linewidth=2.0,
@@ -237,12 +238,10 @@ class LiveTrainingDashboard(BaseCallback):
         rmse_ax.grid(alpha=.2)
 
         if self.latest_ray is not None:
-            phi, ref_u, pred_u, _, _ = self.latest_ray
+            phi, ref_u, pred_u, ref_v, pred_v, _, _ = self.latest_ray
             u_ax.plot(phi[:len(ref_u)], ref_u, label="DOP853")
             u_ax.plot(phi[:len(pred_u)], pred_u, "--", label="PPO")
             u_ax.legend(fontsize=7)
-            ref_v = np.gradient(ref_u, phi[:len(ref_u)])
-            pred_v = np.gradient(pred_u, phi[:len(pred_u)])
             v_ax.plot(phi[:len(ref_v)], ref_v, label="DOP853")
             v_ax.plot(phi[:len(pred_v)], pred_v, "--", label="PPO")
             v_ax.legend(fontsize=7)
