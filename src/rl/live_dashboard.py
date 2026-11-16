@@ -30,6 +30,7 @@ class LiveTrainingDashboard(BaseCallback):
         self.enabled = bool(enabled)
         self.figure = None
         self.axes = None
+        self.pause_button = None
         self.started = None
         self.history_path = self.run_dir / "live_history.csv"
 
