@@ -39,7 +39,7 @@ class ConsoleTelemetryCallback(BaseCallback):
     def _emit(self, event):
         event.setdefault("timesteps", int(self.num_timesteps))
         event.setdefault("elapsed_seconds", round(time.monotonic() - self.started, 3))
-        self._events_handle.write(json.dumps(event, allow_nan=False, separators=(",", ":")) + "\\n")
+        self._events_handle.write(json.dumps(event, allow_nan=False, separators=(",", ":")) + "\n")
         self._events_handle.flush()
 
     @staticmethod
