@@ -3,6 +3,9 @@ import time
 from collections import deque
 
 import numpy as np
+import pytest
+
+pytest.importorskip("stable_baselines3")
 
 from rl.console_telemetry import ConsoleTelemetryCallback
 
