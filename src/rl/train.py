@@ -29,8 +29,10 @@ def main():
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
     parser.add_argument("--live", action="store_true",
                         help="Open the interactive live dashboard (Stop & save button or Q key).")
-    parser.add_argument("--live-eval-freq", type=int, default=1024,
+    parser.add_argument("--live-eval-freq", type=int, default=2048,
                         help="Evaluate validation rays every N timesteps in live mode.")
+    parser.add_argument("--live-refresh-freq", type=int, default=1024,
+                        help="Refresh the full dashboard every N timesteps (lower is smoother, higher is lighter).")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
@@ -62,7 +64,8 @@ def main():
     )
     model.save(run_dir / "initial_model")
     dashboard = LiveTrainingDashboard(
-        run_dir, eval_env, val_ids, eval_freq=args.live_eval_freq, enabled=args.live)
+        run_dir, eval_env, val_ids, eval_freq=args.live_eval_freq,
+        refresh_freq=args.live_refresh_freq, enabled=args.live)
     callbacks = [
         WallClockLimitCallback(args.seconds),
         CheckpointCallback(save_freq=1000, save_path=str(run_dir / "checkpoints"),
@@ -98,6 +101,7 @@ def main():
         "checkpoint_selection": "Use best/best_model.zip selected by validation reward; final_model.zip is the last iterate.",
         "live_dashboard": args.live,
         "live_validation_frequency": args.live_eval_freq,
+        "live_dashboard_refresh_frequency": args.live_refresh_freq,
     }
     (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     started = time.monotonic()
