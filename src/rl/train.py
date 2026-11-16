@@ -28,14 +28,14 @@ def main():
     parser.add_argument("--run-name", default=None)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
     parser.add_argument("--live", action="store_true",
-                        help="Open the interactive live dashboard (Stop & save button or Q key).")
-    parser.add_argument("--live-eval-freq", type=int, default=4096,
-                        help="Evaluate validation rays every N timesteps in live mode.")
-    parser.add_argument("--live-refresh-freq", type=int, default=4096,
-                        help="Refresh the full dashboard every N timesteps (lower is smoother, higher is lighter).")
+                        help="Open the live dashboard; Ctrl+C or the Stop button saves and exits.")
+    parser.add_argument("--live-interval-seconds", type=float, default=60.0,
+                        help="Re-evaluate validation rays and refresh graphs every N seconds.")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
+    if args.live_interval_seconds <= 0:
+        parser.error("--live-interval-seconds must be positive")
     name = args.run_name or f"ppo_{int(args.seconds)}s_seed{args.seed}"
     run_dir = Path("outputs/rl_runs") / name
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -64,8 +64,8 @@ def main():
     )
     model.save(run_dir / "initial_model")
     dashboard = LiveTrainingDashboard(
-        run_dir, eval_env, val_ids, eval_freq=args.live_eval_freq,
-        refresh_freq=args.live_refresh_freq, enabled=args.live)
+        run_dir, eval_env, val_ids,
+        interval_seconds=args.live_interval_seconds, enabled=args.live)
     callbacks = [
         WallClockLimitCallback(args.seconds),
         CheckpointCallback(save_freq=1000, save_path=str(run_dir / "checkpoints"),
@@ -100,8 +100,7 @@ def main():
         "target_kl": 0.03,
         "checkpoint_selection": "Use best/best_model.zip selected by validation reward; final_model.zip is the last iterate.",
         "live_dashboard": args.live,
-        "live_validation_frequency": args.live_eval_freq,
-        "live_dashboard_refresh_frequency": args.live_refresh_freq,
+        "live_report_interval_seconds": args.live_interval_seconds,
     }
     (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     started = time.monotonic()
