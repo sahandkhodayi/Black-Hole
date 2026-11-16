@@ -157,6 +157,9 @@ class LiveTrainingDashboard(BaseCallback):
                 self.episode_rewards.append(reward)
                 self.reward_steps.append(self.num_timesteps)
                 self.reward_values.append(reward)
+        # Pump GUI events during collection so Stop/Q works mid-rollout.
+        if self.enabled and self.figure is not None and self.num_timesteps % 25 == 0:
+            self.figure.canvas.flush_events()
         if self.stop_requested:
             return False
         return True
