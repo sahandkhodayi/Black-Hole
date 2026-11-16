@@ -27,6 +27,7 @@ class LiveTrainingDashboard(BaseCallback):
         self.eval_steps, self.rmse_u, self.rmse_v = [], [], []
         self.action_samples = deque(maxlen=5000)
         self.last_eval_step = -self.eval_freq
+        self.last_dashboard_refresh = -self.refresh_freq
         self.stop_requested = False
         self.paused = False
         self.enabled = bool(enabled)
@@ -335,9 +336,10 @@ class LiveTrainingDashboard(BaseCallback):
         self._write_history(latest_reward, policy, value, val_u, val_v)
         # Rebuild the graph panels only periodically (or immediately after a
         # fresh validation result), not after every PPO rollout.
-        if (val_u is not None or self.num_timesteps == 0
-                or self.num_timesteps % self.refresh_freq < 512):
+        if (val_u is not None
+                or self.num_timesteps - self.last_dashboard_refresh >= self.refresh_freq):
             self._refresh()
+            self.last_dashboard_refresh = self.num_timesteps
 
     def _on_training_end(self):
         self._refresh()
