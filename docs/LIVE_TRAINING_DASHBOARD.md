@@ -61,7 +61,7 @@ a one-hour upper bound; the dashboard stop button can finish the run earlier.
 
 All outputs are saved in `outputs/rl_runs/<run-name>/`:
 
-- `live_dashboard.png`: latest snapshot of the dashboard.
+- `live_dashboard.png`: final snapshot of the dashboard, written once when the run ends.
 - `live_history.csv`: timestamped reward, loss, and validation metric
   samples for later plotting or spreadsheet analysis.
 - `final_model.zip`: model at the moment training stopped.
