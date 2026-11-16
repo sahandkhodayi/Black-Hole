@@ -56,9 +56,8 @@ wall-clock mark.
   `final_model.zip`, updates `config.json`, closes the environments, and
   saves the final dashboard snapshot as `live_dashboard.png`. The CSV history
   remains available as `live_history.csv`. A checkpoint is also written every
-  1,000 environment steps.
-- A periodic checkpoint is also written every 1,000 environment steps under
-  `checkpoints/`. The best validation-reward model remains under `best/`.
+  1,000 environment steps. The best validation-reward model remains under
+  `best/`.
 
 A wall-clock limit is still active. For example, `--seconds 3600` provides
 a one-hour upper bound; the dashboard stop button can finish the run earlier.
