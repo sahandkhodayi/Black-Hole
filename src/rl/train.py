@@ -7,6 +7,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from rl.callbacks import WallClockLimitCallback
+from rl.live_dashboard import LiveTrainingDashboard
 from rl.environment import PhotonTrajectoryEnv
 
 
@@ -26,6 +27,10 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--run-name", default=None)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
+    parser.add_argument("--live", action="store_true",
+                        help="Open the interactive live dashboard (Stop & save button or Q key).")
+    parser.add_argument("--live-eval-freq", type=int, default=1024,
+                        help="Evaluate validation rays every N timesteps in live mode.")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
@@ -56,6 +61,8 @@ def main():
         verbose=1,
     )
     model.save(run_dir / "initial_model")
+    dashboard = LiveTrainingDashboard(
+        run_dir, eval_env, val_ids, eval_freq=args.live_eval_freq, enabled=args.live)
     callbacks = [
         WallClockLimitCallback(args.seconds),
         CheckpointCallback(save_freq=1000, save_path=str(run_dir / "checkpoints"),
@@ -63,6 +70,7 @@ def main():
         EvalCallback(eval_env, best_model_save_path=str(run_dir / "best"),
                      log_path=str(run_dir / "evaluation"), eval_freq=1000,
                      n_eval_episodes=min(4, len(val_ids)), deterministic=True, verbose=1),
+        dashboard,
     ]
     config = {
         "algorithm": "PPO",
@@ -88,18 +96,25 @@ def main():
         "ent_coef": 0.005,
         "target_kl": 0.03,
         "checkpoint_selection": "Use best/best_model.zip selected by validation reward; final_model.zip is the last iterate.",
+        "live_dashboard": args.live,
+        "live_validation_frequency": args.live_eval_freq,
     }
     (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     started = time.monotonic()
+    interrupted = False
     try:
         model.learn(total_timesteps=10_000_000, callback=callbacks,
                     progress_bar=False, tb_log_name=name)
+    except KeyboardInterrupt:
+        interrupted = True
+        print("\\nTraining interrupted by user; saving the current policy...")
     finally:
         elapsed = time.monotonic() - started
         model.save(run_dir / "final_model")
         config["seconds_actual"] = elapsed
         config["timesteps_actual"] = int(model.num_timesteps)
-        (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+        config["stopped_early"] = bool(interrupted or dashboard.stop_requested)
+        (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\\n", encoding="utf-8")
         train_env.close()
         eval_env.close()
     print(f"Saved {run_dir}; elapsed={elapsed:.1f}s; timesteps={model.num_timesteps}")
