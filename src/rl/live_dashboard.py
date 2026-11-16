@@ -85,7 +85,7 @@ class LiveTrainingDashboard(BaseCallback):
             errors_u.append(float(np.sqrt(np.mean((np.asarray(pred_u)-ref_u)**2))))
             errors_v.append(float(np.sqrt(np.mean((np.asarray(pred_v)-ref_v)**2))))
             if first_ray is None:
-                first_ray = (np.asarray(ref_u), np.asarray(pred_u))
+                first_ray = (np.asarray(self.eval_env.phi).copy(), np.asarray(ref_u), np.asarray(pred_u))
         return float(np.mean(errors_u)), float(np.mean(errors_v)), first_ray
 
     def _refresh(self):
@@ -124,8 +124,7 @@ class LiveTrainingDashboard(BaseCallback):
         error_ax.grid(alpha=.25)
 
         if getattr(self, "latest_ray", None) is not None:
-            ref_u, pred_u = self.latest_ray
-            phi = np.arange(len(ref_u))
+            phi, ref_u, pred_u = self.latest_ray
             trajectory_ax.plot(phi, ref_u, label="DOP853 reference")
             trajectory_ax.plot(phi, pred_u, "--", label="PPO prediction")
             trajectory_ax.legend()
@@ -176,7 +175,7 @@ class LiveTrainingDashboard(BaseCallback):
             self.value_losses.append(float(value))
 
         val_u = val_v = None
-        if self.num_timesteps - self.last_eval_step >= self.eval_freq:
+        if self.enabled and self.num_timesteps - self.last_eval_step >= self.eval_freq:
             val_u, val_v, self.latest_ray = self._evaluate_validation()
             self.eval_steps.append(self.num_timesteps)
             self.rmse_u.append(val_u)
