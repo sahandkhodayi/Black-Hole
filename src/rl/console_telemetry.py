@@ -29,7 +29,7 @@ class ConsoleTelemetryCallback(BaseCallback):
         self.events_path = self.run_dir / "live_events.jsonl"
         self.control_path = self.run_dir / "console_control.json"
         self.started = None
-        self.last_eval_step = -self.eval_freq
+        self.last_eval_step = 0
         self.last_control_poll = -self.control_poll_freq
         self.stop_requested = False
         self.paused = False
