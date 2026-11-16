@@ -8,7 +8,7 @@ TensorBoard.
 From the repository root, in PowerShell:
 
 ```powershell
-python -m rl.train --seconds 3600 --seed 42 --run-name live_research_01 --live
+python -m rl.train --seconds 3600 --seed 42 --run-name live_research_01 --live --live-interval-seconds 60
 ```
 
 The time limit is one hour, but you can stop earlier from the dashboard.
@@ -37,8 +37,12 @@ Smaller panels show:
 Validation cases are never used for gradient updates. All orbit and metric
 panels are driven by actual dataset validation rays and policy predictions.
 
-Validation is evaluated every 1,024 training steps by default. Change this
-with `--live-eval-freq 2048` (larger values reduce evaluation overhead).
+The dashboard performs an initial validation report at the first PPO rollout
+boundary, then re-evaluates validation rays and redraws the graphs approximately
+once per wall-clock interval. The default is 60 seconds. Change it with
+`--live-interval-seconds 30` or `--live-interval-seconds 120`. Updates happen
+at PPO rollout boundaries, so a report can appear slightly after the exact
+wall-clock mark.
 
 ## Stop safely at any time
 
@@ -48,9 +52,11 @@ with `--live-eval-freq 2048` (larger values reduce evaluation overhead).
 - Click **Stop & save** in the dashboard, or press **Q** / **Esc** while the
   dashboard window is focused.
 - Alternatively press **Ctrl+C** in the terminal.
-- The stop callback exits the current training loop as soon as it receives
-  the request. The training script writes `final_model.zip`, updates
-  `config.json`, and closes the environments.
+- The training script catches the interrupt, exits the PPO loop, writes
+  `final_model.zip`, updates `config.json`, closes the environments, and
+  saves the final dashboard snapshot as `live_dashboard.png`. The CSV history
+  remains available as `live_history.csv`. A checkpoint is also written every
+  1,000 environment steps.
 - A periodic checkpoint is also written every 1,000 environment steps under
   `checkpoints/`. The best validation-reward model remains under `best/`.
 
