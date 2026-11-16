@@ -13,17 +13,29 @@ python -m rl.train --seconds 3600 --seed 42 --run-name live_research_01 --live
 
 The time limit is one hour, but you can stop earlier from the dashboard.
 
-## Dashboard panels
+## Live research console
+
+The main panel is an animated top-down view of a Schwarzschild photon ray.
+It draws the event horizon at r/r_s = 1, the photon sphere at r/r_s = 1.5,
+and the actual validation trajectory in Cartesian coordinates. The DOP853
+reference is blue and the PPO rollout is dashed pink. The ray advances while
+training collects environment steps; a new real validation rollout replaces
+the displayed ray at each validation interval. The black-hole rings are a
+visual guide, not a simulated accretion disk or a time-evolving spacetime.
+
+Smaller panels show:
 
 - **Episode reward:** completed training-episode returns and a five-episode
   moving average.
 - **Optimization losses:** policy-gradient loss and value-function loss
   reported by Stable-Baselines3 after PPO updates.
-- **Validation RMSE:** autoregressive validation errors for inverse radius
-  (u=1/r) and derivative (v=du/dphi). Validation cases are never used
-  for gradient updates.
-- **Live validation ray:** one fixed validation ray, comparing the DOP853
-  reference with the current PPO rollout in (u(phi)).
+- **Action distribution:** recent normalized PPO actions for u and v.
+- **Validation RMSE:** autoregressive validation errors for u and v.
+- **u(phi):** reference and predicted inverse-radius histories.
+- **v(phi):** reference and predicted radial-derivative histories.
+
+Validation cases are never used for gradient updates. All orbit and metric
+panels are driven by actual dataset validation rays and policy predictions.
 
 Validation is evaluated every 1,024 training steps by default. Change this
 with `--live-eval-freq 2048` (larger values reduce evaluation overhead).
