@@ -8,6 +8,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from rl.callbacks import WallClockLimitCallback
 from rl.live_dashboard import LiveTrainingDashboard
+from rl.console_telemetry import ConsoleTelemetryCallback
 from rl.environment import PhotonTrajectoryEnv
 
 
@@ -28,12 +29,18 @@ def main():
     parser.add_argument("--run-name", default=None)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
     parser.add_argument("--live", action="store_true",
-                        help="Open the interactive live dashboard (Stop & save button or Q key).")
+                        help="Open the legacy Matplotlib dashboard.")
+    parser.add_argument("--console", action="store_true",
+                        help="Stream training telemetry for the native Rust research console.")
+    parser.add_argument("--console-eval-freq", type=int, default=4096,
+                        help="Evaluate validation rays every N timesteps in Rust-console mode.")
     parser.add_argument("--live-eval-freq", type=int, default=4096,
                         help="Evaluate validation rays every N timesteps in live mode.")
     parser.add_argument("--live-refresh-freq", type=int, default=4096,
                         help="Refresh the full dashboard every N timesteps (lower is smoother, higher is lighter).")
     args = parser.parse_args()
+    if args.live and args.console:
+        parser.error("--live and --console are mutually exclusive")
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
     name = args.run_name or f"ppo_{int(args.seconds)}s_seed{args.seed}"
@@ -66,6 +73,9 @@ def main():
     dashboard = LiveTrainingDashboard(
         run_dir, eval_env, val_ids, eval_freq=args.live_eval_freq,
         refresh_freq=args.live_refresh_freq, enabled=args.live)
+    console_callback = ConsoleTelemetryCallback(
+        run_dir, eval_env, val_ids, eval_freq=args.console_eval_freq
+    ) if args.console else None
     callbacks = [
         WallClockLimitCallback(args.seconds),
         CheckpointCallback(save_freq=1000, save_path=str(run_dir / "checkpoints"),
@@ -75,6 +85,8 @@ def main():
                      n_eval_episodes=min(4, len(val_ids)), deterministic=True, verbose=1),
         dashboard,
     ]
+    if console_callback is not None:
+        callbacks.append(console_callback)
     config = {
         "algorithm": "PPO",
         "task": "teacher-guided sequential photon trajectory tracking",
@@ -100,6 +112,8 @@ def main():
         "target_kl": 0.03,
         "checkpoint_selection": "Use best/best_model.zip selected by validation reward; final_model.zip is the last iterate.",
         "live_dashboard": args.live,
+        "native_console": args.console,
+        "console_validation_frequency": args.console_eval_freq,
         "live_validation_frequency": args.live_eval_freq,
         "live_dashboard_refresh_frequency": args.live_refresh_freq,
     }
@@ -117,7 +131,10 @@ def main():
         model.save(run_dir / "final_model")
         config["seconds_actual"] = elapsed
         config["timesteps_actual"] = int(model.num_timesteps)
-        config["stopped_early"] = bool(interrupted or dashboard.stop_requested)
+        config["stopped_early"] = bool(
+            interrupted or dashboard.stop_requested
+            or (console_callback is not None and console_callback.stop_requested)
+        )
         (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
         train_env.close()
         eval_env.close()

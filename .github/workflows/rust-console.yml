@@ -1,0 +1,38 @@
+name: Rust research console
+
+on:
+  push:
+    paths:
+      - "tools/research-console/**"
+      - "src/rl/console_telemetry.py"
+      - "src/rl/train.py"
+      - "tests/rl/test_console_telemetry.py"
+      - ".github/workflows/rust-console.yml"
+  pull_request:
+    paths:
+      - "tools/research-console/**"
+      - "src/rl/console_telemetry.py"
+      - "src/rl/train.py"
+      - "tests/rl/test_console_telemetry.py"
+      - ".github/workflows/rust-console.yml"
+
+jobs:
+  cargo-check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check native research console
+        run: cargo check --manifest-path tools/research-console/Cargo.toml
+
+  python-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install project with RL dependencies
+        run: python -m pip install -e ".[dev,rl]"
+      - name: Run test suite
+        run: python -m pytest -q
