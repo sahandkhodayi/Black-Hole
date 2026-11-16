@@ -301,6 +301,15 @@ impl ResearchConsole {
     }
 }
 
+impl Drop for ResearchConsole {
+    fn drop(&mut self) {
+        if self.child.is_some() {
+            // Closing the UI requests a graceful save from the Python callback.
+            let _ = self.write_control(false, true);
+        }
+    }
+}
+
 impl eframe::App for ResearchConsole {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.poll_events();
