@@ -265,7 +265,7 @@ impl ResearchConsole {
         Plot::new(title).height(height).allow_zoom(true).allow_scroll(true)
             .show(ui, |plot_ui| {
                 if !series.is_empty() {
-                    plot_ui.line(Line::new(title, points));
+                    plot_ui.line(Line::new(points).name(title));
                 }
             });
     }
@@ -280,9 +280,9 @@ impl ResearchConsole {
                         [radius * angle.cos(), radius * angle.sin()]
                     }))
                 };
-                plot_ui.line(Line::new("Event horizon (1 r_s)", circle(1.0))
+                plot_ui.line(Line::new(circle(1.0)).name("Event horizon (1 r_s)")
                     .color(Color32::from_rgb(245, 158, 66)));
-                plot_ui.line(Line::new("Photon sphere (1.5 r_s)", circle(1.5))
+                plot_ui.line(Line::new(circle(1.5)).name("Photon sphere (1.5 r_s)")
                     .color(Color32::from_rgb(232, 183, 90)));
                 if let Some(ray) = &self.ray {
                     let ref_points = ray.phi.iter().zip(ray.reference_u.iter())
@@ -295,9 +295,9 @@ impl ResearchConsole {
                             let r = (1.0 / u).clamp(0.0, 15.0);
                             Some([r * phi.cos(), r * phi.sin()])
                         } else { None });
-                    plot_ui.line(Line::new("DOP853 reference", PlotPoints::from_iter(ref_points))
+                    plot_ui.line(Line::new(PlotPoints::from_iter(ref_points)).name("DOP853 reference")
                         .color(Color32::from_rgb(65, 190, 255)).width(2.2));
-                    plot_ui.line(Line::new("PPO policy", PlotPoints::from_iter(pred_points))
+                    plot_ui.line(Line::new(PlotPoints::from_iter(pred_points)).name("PPO policy")
                         .color(Color32::from_rgb(255, 105, 138)).width(2.0));
                 }
             });
@@ -314,14 +314,14 @@ impl ResearchConsole {
         Plot::new("action_distribution").height(155.0)
             .legend(Legend::default()).show(ui, |plot_ui| {
                 if !self.action_hist_u.is_empty() {
-                    plot_ui.line(Line::new("u action", PlotPoints::from_iter(
+                    plot_ui.line(Line::new(PlotPoints::from_iter(
                         self.action_hist_u.iter().copied()
-                    )).color(Color32::from_rgb(65, 160, 235)));
+                    )).name("u action").color(Color32::from_rgb(65, 160, 235)));
                 }
                 if !self.action_hist_v.is_empty() {
-                    plot_ui.line(Line::new("v action", PlotPoints::from_iter(
+                    plot_ui.line(Line::new(PlotPoints::from_iter(
                         self.action_hist_v.iter().copied()
-                    )).color(Color32::from_rgb(238, 145, 90)));
+                    )).name("v action").color(Color32::from_rgb(238, 145, 90)));
                 }
             });
     }
@@ -336,9 +336,9 @@ impl ResearchConsole {
                         .map(|(x, y)| [*x, *y]);
                     let pred_points = ray.phi.iter().zip(predicted.iter())
                         .map(|(x, y)| [*x, *y]);
-                    plot_ui.line(Line::new("DOP853", PlotPoints::from_iter(ref_points))
+                    plot_ui.line(Line::new(PlotPoints::from_iter(ref_points)).name("DOP853")
                         .color(Color32::from_rgb(65, 190, 255)));
-                    plot_ui.line(Line::new("PPO", PlotPoints::from_iter(pred_points))
+                    plot_ui.line(Line::new(PlotPoints::from_iter(pred_points)).name("PPO")
                         .color(Color32::from_rgb(255, 105, 138)));
                 }
             });
