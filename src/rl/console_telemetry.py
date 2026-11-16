@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections import deque
 from pathlib import Path
 
 import numpy as np
@@ -35,6 +36,7 @@ class ConsoleTelemetryCallback(BaseCallback):
         self.paused = False
         self._events_handle = None
         self.latest_episode_reward = None
+        self.action_samples = deque(maxlen=2048)
 
     def _emit(self, event):
         event.setdefault("timesteps", int(self.num_timesteps))
@@ -102,7 +104,20 @@ class ConsoleTelemetryCallback(BaseCallback):
         self._events_handle = self.events_path.open("w", encoding="utf-8", buffering=1)
         self._emit({"type": "status", "status": "running"})
 
+    def _action_histogram(self, column):
+        if not self.action_samples:
+            return []
+        values = np.asarray(self.action_samples, dtype=float)[:, column]
+        counts, edges = np.histogram(values, bins=24, range=(-1.0, 1.0))
+        centers = (edges[:-1] + edges[1:]) * 0.5
+        return [[float(x), int(y)] for x, y in zip(centers, counts)]
+
     def _on_step(self):
+        actions = self.locals.get("actions")
+        if actions is not None:
+            self.action_samples.extend(
+                row.copy() for row in np.asarray(actions).reshape(-1, 2)
+            )
         for info in self.locals.get("infos", []):
             episode = info.get("episode")
             if episode and "r" in episode:
@@ -124,6 +139,8 @@ class ConsoleTelemetryCallback(BaseCallback):
             "episode_reward": self.latest_episode_reward,
             "policy_loss": float(policy_loss) if policy_loss is not None and np.isfinite(policy_loss) else None,
             "value_loss": float(value_loss) if value_loss is not None and np.isfinite(value_loss) else None,
+            "action_hist_u": self._action_histogram(0),
+            "action_hist_v": self._action_histogram(1),
         }
         self.latest_episode_reward = None
         if self.num_timesteps - self.last_eval_step >= self.eval_freq:
