@@ -30,6 +30,9 @@ with `--live-eval-freq 2048` (larger values reduce evaluation overhead).
 
 ## Stop safely at any time
 
+- Click **Pause** to freeze training at the current environment step; click
+  **Resume** to continue. The space bar also toggles pause/resume while the
+  dashboard window is focused.
 - Click **Stop & save** in the dashboard, or press **Q** / **Esc** while the
   dashboard window is focused.
 - Alternatively press **Ctrl+C** in the terminal.
