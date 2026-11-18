@@ -38,7 +38,24 @@ python src/inspect_data.py --data data/photon_trajectories_v2.npz --manifest dat
 python src/make_splits.py --data data/photon_trajectories_v2.npz --output data/split_manifest_v2.json --seed 42
 ~~~
 
-## Previous guide
+
+### Compare neural architectures automatically
+
+To compare ReLU, tanh, GELU, SiLU, and ELU networks across two widths and
+two depths, run:
+
+~~~powershell
+python -m rl.sweep_dynamics --dataset data/photon_trajectories_v2.npz --splits data/split_manifest_v2.json --epochs 200 --patience 25 --seed 42 --run-name dynamics_architecture_sweep
+~~~
+
+The sweep trains 20 candidates and ranks them by **autoregressive validation
+error** (each model consumes its own previous predictions). It does not use
+the test split to choose a winner. Results are written to
+`outputs/rl_runs/dynamics_architecture_sweep/leaderboard.csv` and
+`leaderboard.json`; the winning checkpoint is identified in
+`BEST_MODEL.txt`. Evaluate that winner on the test split only after model
+selection is complete.
+\n## Previous guide
 
 The former long README has been preserved at [docs/PROJECT_REFERENCE.md](docs/PROJECT_REFERENCE.md). Treat it as historical study material; use GUIDEBOOK.md for current instructions.
 
