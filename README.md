@@ -48,6 +48,6 @@ The target is sequential generation of escaping photon trajectories. The referen
 The RL environment, PPO training script, evaluation script, and experiment comparison utility are included on the default branch. They are a teacher-guided tracking baseline, not a claim of autonomous physics discovery.
 
 
-## Live RL research dashboard
+## Live RL research dashboards
 
-Watch PPO training in real time, inspect reward/loss/validation-error curves, compare a live validation ray against DOP853, and stop safely at any time: [Live training dashboard guide](docs/LIVE_TRAINING_DASHBOARD.md).
+The legacy Matplotlib dashboard remains available through `python -m rl.train --live --seconds 600`. For the standalone **PySide6 + PyQtGraph** desktop dashboard, install `python -m pip install -e ".[rl,gui]"` and run `python -m rl.qt_dashboard --seconds 600`. See the [Python live dashboard guide](docs/PYTHON_LIVE_DASHBOARD.md) for setup, controls, process architecture, and outputs. The [legacy Matplotlib dashboard guide](docs/LIVE_TRAINING_DASHBOARD.md) documents the original interface.

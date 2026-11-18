@@ -8,6 +8,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from rl.callbacks import WallClockLimitCallback
 from rl.live_dashboard import LiveTrainingDashboard
+from rl.telemetry import DashboardTelemetryCallback
 from rl.environment import PhotonTrajectoryEnv
 
 
@@ -31,11 +32,19 @@ def main():
                         help="Open the live dashboard; Ctrl+C or the Stop button saves and exits.")
     parser.add_argument("--live-interval-seconds", type=float, default=60.0,
                         help="Re-evaluate validation rays and refresh graphs every N seconds.")
+    parser.add_argument("--telemetry-path", default=None,
+                        help="Append JSONL telemetry for the standalone Qt dashboard.")
+    parser.add_argument("--control-path", default=None,
+                        help="Read pause/resume/stop commands for the standalone Qt dashboard.")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
     if args.live_interval_seconds <= 0:
         parser.error("--live-interval-seconds must be positive")
+    if bool(args.telemetry_path) != bool(args.control_path):
+        parser.error("--telemetry-path and --control-path must be provided together")
+    if args.live and args.telemetry_path:
+        parser.error("Use either the legacy --live dashboard or the standalone Qt dashboard, not both")
     name = args.run_name or f"ppo_{int(args.seconds)}s_seed{args.seed}"
     run_dir = Path("outputs/rl_runs") / name
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -75,6 +84,10 @@ def main():
                      n_eval_episodes=min(4, len(val_ids)), deterministic=True, verbose=1),
         dashboard,
     ]
+    if args.telemetry_path:
+        callbacks.append(DashboardTelemetryCallback(
+            args.telemetry_path, args.control_path, eval_env, val_ids,
+            interval_seconds=args.live_interval_seconds))
     config = {
         "algorithm": "PPO",
         "task": "teacher-guided sequential photon trajectory tracking",
@@ -101,6 +114,7 @@ def main():
         "checkpoint_selection": "Use best/best_model.zip selected by validation reward; final_model.zip is the last iterate.",
         "live_dashboard": args.live,
         "live_report_interval_seconds": args.live_interval_seconds,
+        "standalone_dashboard": bool(args.telemetry_path),
     }
     (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     started = time.monotonic()
