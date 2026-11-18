@@ -29,6 +29,7 @@ class TrainingWindow(QtWidgets.QMainWindow):
         self._partial = b""
         self._timesteps = []
         self._rewards = []
+        self._reward_episode = []
         self._policy_losses = []
         self._value_losses = []
         self._rmse_u = []
@@ -174,6 +175,15 @@ class TrainingWindow(QtWidgets.QMainWindow):
         self.steps_label.setText(f"{step:,} steps")
         if event == "status":
             self.status_label.setText(str(record.get("status", "Running")).capitalize())
+        elif event == "episode":
+            self._reward_episode.append(float(record.get("reward", 0.0)))
+            self._rewards.append(float(record.get("reward", 0.0)))
+            self._timesteps.append(step)
+            self.reward_curve.setData(self._timesteps, self._rewards)
+            if len(self._rewards) >= 5:
+                import numpy as np
+                smooth = np.convolve(self._rewards, np.ones(5) / 5, mode="valid")
+                self.reward_mean_curve.setData(self._timesteps[4:], smooth)
         elif event == "metrics":
             self._steps_for_loss.append(step)
             self._policy_losses.append(record.get("policy_loss"))
