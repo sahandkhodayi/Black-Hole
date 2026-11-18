@@ -49,8 +49,8 @@ wall-clock mark.
 - Click **Pause** to freeze training at the current environment step; click
   **Resume** to continue. The space bar also toggles pause/resume while the
   dashboard window is focused.
-- Click **Stop & save** in the dashboard, or press **Q** / **Esc** while the
-  dashboard window is focused.
+- Click **Quit & save** in the dashboard, or press **Q** / **Esc** while the
+  dashboard window is focused. Closing the dashboard window also requests a safe stop.
 - Alternatively press **Ctrl+C** in the terminal.
 - The training script catches the interrupt, exits the PPO loop, writes
   `final_model.zip`, updates `config.json`, closes the environments, and
@@ -68,7 +68,8 @@ All outputs are saved in `outputs/rl_runs/<run-name>/`:
 
 - `live_dashboard.png`: final snapshot of the dashboard, written once when the run ends.
 - `live_history.csv`: timestamped reward, loss, and validation metric
-  samples for later plotting or spreadsheet analysis.
+  samples written on the configured reporting interval (60 seconds by default),
+  plus the final model/dashboard outputs. This avoids per-rollout disk writes.
 - `final_model.zip`: model at the moment training stopped.
 - `checkpoints/`: periodic recovery checkpoints.
 - `best/best_model.zip`: checkpoint selected by validation reward.

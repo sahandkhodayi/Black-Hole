@@ -76,7 +76,7 @@ class LiveTrainingDashboard(BaseCallback):
             pause_ax = self.figure.add_axes([.30, .035, .16, .055])
             stop_ax = self.figure.add_axes([.53, .035, .20, .055])
             self.pause_button = Button(pause_ax, "Pause")
-            self.stop_button = Button(stop_ax, "Stop & save")
+            self.stop_button = Button(stop_ax, "Quit & save")
             self.pause_button.on_clicked(self._toggle_pause)
             self.stop_button.on_clicked(self._request_stop)
             self.figure.canvas.mpl_connect("key_press_event", self._on_key)
@@ -91,6 +91,13 @@ class LiveTrainingDashboard(BaseCallback):
                     "policy_loss", "value_loss", "validation_rmse_u",
                     "validation_rmse_v", "action_0_mean", "action_1_mean"
                 ])
+
+    @staticmethod
+    def _append_bounded(series, value, limit=2000):
+        """Keep plotting history bounded during multi-hour experiments."""
+        series.append(value)
+        if len(series) > limit:
+            del series[:len(series) - limit]
 
     def _request_stop(self, _event=None):
         self.stop_requested = True
@@ -293,8 +300,8 @@ class LiveTrainingDashboard(BaseCallback):
             if episode and "r" in episode:
                 reward = float(episode["r"])
                 self.episode_rewards.append(reward)
-                self.reward_steps.append(self.num_timesteps)
-                self.reward_values.append(reward)
+                self._append_bounded(self.reward_steps, self.num_timesteps)
+                self._append_bounded(self.reward_values, reward)
         actions = self.locals.get("actions")
         if actions is not None:
             for action in np.asarray(actions).reshape(-1, 2):
@@ -322,24 +329,26 @@ class LiveTrainingDashboard(BaseCallback):
         policy = values.get("train/policy_gradient_loss")
         value = values.get("train/value_loss")
         if policy is not None and value is not None:
-            self.loss_steps.append(self.num_timesteps)
-            self.policy_losses.append(float(policy))
-            self.value_losses.append(float(value))
+            self._append_bounded(self.loss_steps, self.num_timesteps)
+            self._append_bounded(self.policy_losses, float(policy))
+            self._append_bounded(self.value_losses, float(value))
 
         now = time.monotonic()
         report_due = self.enabled and self._report_due(now)
         val_u = val_v = None
         if report_due:
             val_u, val_v, self.latest_ray = self._evaluate_validation()
-            self.eval_steps.append(self.num_timesteps)
-            self.rmse_u.append(val_u)
-            self.rmse_v.append(val_v)
+            self._append_bounded(self.eval_steps, self.num_timesteps)
+            self._append_bounded(self.rmse_u, val_u)
+            self._append_bounded(self.rmse_v, val_v)
             self.last_report_time = now
 
-        latest_reward = self.reward_values[-1] if self.reward_values else None
-        self._write_history(latest_reward, policy, value, val_u, val_v)
-        # Validation and full graph redraw happen at most once per time interval.
+        # Persist dashboard metrics only on the reporting interval. Writing a
+        # CSV row after every PPO rollout caused avoidable filesystem activity
+        # during long runs (especially on WSL/Windows-mounted project folders).
         if report_due:
+            latest_reward = self.reward_values[-1] if self.reward_values else None
+            self._write_history(latest_reward, policy, value, val_u, val_v)
             self._refresh()
 
     def save_final_snapshot(self):
