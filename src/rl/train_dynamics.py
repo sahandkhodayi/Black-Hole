@@ -36,12 +36,15 @@ def main():
     parser.add_argument("--epochs", type=int, default=300)
     parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--width", type=int, default=128)
+    parser.add_argument("--depth", type=int, default=3)
+    parser.add_argument("--activation", choices=["relu", "tanh", "gelu", "silu", "elu"], default="gelu")
     parser.add_argument("--patience", type=int, default=30)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--run-name", default="dynamics_supervised")
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
     args = parser.parse_args()
-    if min(args.epochs, args.batch_size, args.patience) <= 0:
+    if min(args.epochs, args.batch_size, args.patience, args.width, args.depth) <= 0:
         parser.error("epochs, batch-size, and patience must be positive")
 
     random.seed(args.seed)
@@ -74,7 +77,7 @@ def main():
     x_val_t = torch.from_numpy(x_val).to(device)
     y_val_t = torch.from_numpy(y_val).to(device)
 
-    model = PhotonDynamicsMLP(width=128).to(device)
+    model = PhotonDynamicsMLP(width=args.width, activation=args.activation, depth=args.depth).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", factor=0.5, patience=8, min_lr=1e-5
@@ -124,7 +127,8 @@ def main():
             stale_epochs = 0
             save_checkpoint(
                 run_dir / "best" / "best_model.pt", model,
-                step_scale=step_scale, width=128, best_epoch=best_epoch,
+                step_scale=step_scale, width=args.width, activation=args.activation,
+                depth=args.depth, best_epoch=best_epoch,
             )
         else:
             stale_epochs += 1
@@ -147,6 +151,7 @@ def main():
             )
     config = {
         "algorithm": "supervised MLP regression",
+        "architecture": {"width": args.width, "depth": args.depth, "activation": args.activation},
         "task": "one-step photon state prediction from DOP853 transitions",
         "seed": args.seed,
         "device": device,
