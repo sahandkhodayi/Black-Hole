@@ -112,9 +112,13 @@ def predict_next(model, state, *, r0, phi, delta_phi, step_scale, device):
     ]], dtype=np.float32)
     with torch.no_grad():
         y = model(torch.as_tensor(x, device=device)).cpu().numpy()[0]
+    # Do not clip normalized outputs here. The chosen reference scales are
+    # not hard physical bounds: near the photon sphere u can exceed 0.5 and
+    # |du/dphi| can exceed 0.2. Clipping silently saturates the learned
+    # dynamics and creates artificial flat segments in autoregressive rollouts.
     return np.asarray([
-        np.clip(y[0], 0.0, 1.0) * U_SCALE,
-        np.clip(y[1], -1.0, 1.0) * V_SCALE,
+        y[0] * U_SCALE,
+        y[1] * V_SCALE,
     ], dtype=float)
 
 
