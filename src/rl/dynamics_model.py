@@ -60,20 +60,25 @@ def make_transition_arrays(data, case_ids):
     if absent:
         raise ValueError(f"Case IDs not found in dataset: {absent}")
 
+    # Derive preprocessing only from the requested split. In particular,
+    # validation/test trajectories must not influence training normalization.
+    selected = []
     all_steps = []
-    for start, end in zip(data["offsets"][:-1], data["offsets"][1:]):
-        steps = np.diff(data["phi"][int(start):int(end)])
-        if np.any(steps <= 0):
-            raise ValueError("Each trajectory must have strictly increasing phi")
+    for case_id in case_ids:
+        pos = positions[int(case_id)]
+        start, end = map(int, data["offsets"][pos:pos + 2])
+        phi = data["phi"][start:end]
+        steps = np.diff(phi)
+        if np.any(~np.isfinite(steps)) or np.any(steps <= 0):
+            raise ValueError("Each trajectory must have strictly increasing finite phi")
         all_steps.extend(steps.tolist())
+        selected.append((int(case_id), pos, start, end))
     if not all_steps:
         raise ValueError("No trajectory transitions found")
     step_scale = float(max(all_steps))
 
     features, targets = [], []
-    for case_id in case_ids:
-        pos = positions[int(case_id)]
-        start, end = map(int, data["offsets"][pos:pos + 2])
+    for case_id, pos, start, end in selected:
         phi = data["phi"][start:end]
         u = data["u"][start:end]
         v = data["v"][start:end]
