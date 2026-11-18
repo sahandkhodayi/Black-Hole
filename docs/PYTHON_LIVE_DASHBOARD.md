@@ -55,7 +55,7 @@ The dashboard starts the trainer automatically. Do not start a second
 - Validation RMSE and the first held-out validation ray update on the
   wall-clock report interval (60 seconds by default).
 
-The four plots are created once. Incoming data updates their existing curves
+The five plots are created once. Incoming data updates their existing curves
 with PyQtGraph's `setData()`; the dashboard does not clear and rebuild plots
 on each refresh.
 
