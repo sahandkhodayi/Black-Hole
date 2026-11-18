@@ -92,6 +92,13 @@ class LiveTrainingDashboard(BaseCallback):
                     "validation_rmse_v", "action_0_mean", "action_1_mean"
                 ])
 
+    @staticmethod
+    def _append_bounded(series, value, limit=2000):
+        """Keep plotting history bounded during multi-hour experiments."""
+        series.append(value)
+        if len(series) > limit:
+            del series[:len(series) - limit]
+
     def _request_stop(self, _event=None):
         self.stop_requested = True
 
@@ -293,8 +300,8 @@ class LiveTrainingDashboard(BaseCallback):
             if episode and "r" in episode:
                 reward = float(episode["r"])
                 self.episode_rewards.append(reward)
-                self.reward_steps.append(self.num_timesteps)
-                self.reward_values.append(reward)
+                self._append_bounded(self.reward_steps, self.num_timesteps)
+                self._append_bounded(self.reward_values, reward)
         actions = self.locals.get("actions")
         if actions is not None:
             for action in np.asarray(actions).reshape(-1, 2):
@@ -322,18 +329,18 @@ class LiveTrainingDashboard(BaseCallback):
         policy = values.get("train/policy_gradient_loss")
         value = values.get("train/value_loss")
         if policy is not None and value is not None:
-            self.loss_steps.append(self.num_timesteps)
-            self.policy_losses.append(float(policy))
-            self.value_losses.append(float(value))
+            self._append_bounded(self.loss_steps, self.num_timesteps)
+            self._append_bounded(self.policy_losses, float(policy))
+            self._append_bounded(self.value_losses, float(value))
 
         now = time.monotonic()
         report_due = self.enabled and self._report_due(now)
         val_u = val_v = None
         if report_due:
             val_u, val_v, self.latest_ray = self._evaluate_validation()
-            self.eval_steps.append(self.num_timesteps)
-            self.rmse_u.append(val_u)
-            self.rmse_v.append(val_v)
+            self._append_bounded(self.eval_steps, self.num_timesteps)
+            self._append_bounded(self.rmse_u, val_u)
+            self._append_bounded(self.rmse_v, val_v)
             self.last_report_time = now
 
         # Persist dashboard metrics only on the reporting interval. Writing a
