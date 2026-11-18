@@ -34,3 +34,24 @@ def test_mlp_maps_five_features_to_two_state_values():
     output = model(torch.zeros((4, 5)))
     assert output.shape == (4, 2)
     assert torch.isfinite(output).all()
+
+
+def test_predict_next_does_not_clip_valid_states_above_old_scale_limits():
+    from rl.dynamics_model import predict_next
+
+    class FixedNormalizedOutput(torch.nn.Module):
+        def forward(self, features):
+            return torch.tensor([[1.25, -1.5]], dtype=features.dtype, device=features.device)
+
+    prediction = predict_next(
+        FixedNormalizedOutput(),
+        (0.625, 0.0),
+        r0=1.6,
+        phi=0.0,
+        delta_phi=0.01,
+        step_scale=0.01,
+        device="cpu",
+    )
+
+    assert prediction[0] == pytest.approx(0.625)
+    assert prediction[1] == pytest.approx(-0.3)
