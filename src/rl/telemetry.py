@@ -107,6 +107,10 @@ class DashboardTelemetryCallback(BaseCallback):
         if self._stopped:
             self._emit("status", status="stopping")
             return False
+        for info in self.locals.get("infos", []):
+            episode = info.get("episode")
+            if episode and "r" in episode:
+                self._emit("episode", reward=float(episode["r"]))
         while self._paused and not self._stopped:
             time.sleep(0.1)
             self._read_control()
