@@ -41,7 +41,7 @@ class TrainingWindow(QtWidgets.QMainWindow):
         self._process.readyReadStandardOutput.connect(self._read_process_output)
         self._process.finished.connect(self._process_finished)
 
-        self.run_dir = Path("outputs/rl_runs") / (run_name or "qt_dashboard_run")
+        self.run_dir = Path("outputs/rl_runs") / (run_name or f"ppo_{self.seconds}s_seed42")
         self.run_dir.mkdir(parents=True, exist_ok=True)
         self.telemetry_path = self.run_dir / "dashboard.jsonl"
         self.control_path = self.run_dir / "dashboard.control"
@@ -100,6 +100,15 @@ class TrainingWindow(QtWidgets.QMainWindow):
             pen=pg.mkPen("#ff6b8a", width=2, style=QtCore.Qt.PenStyle.DashLine),
             name="PPO prediction")
         self.trajectory_plot.addLegend()
+
+        self.radial_velocity_plot = self.graphics.addPlot(row=2, col=0, title="Radial derivative v(φ)")
+        self.radial_velocity_plot.showGrid(x=True, y=True, alpha=0.2)
+        self.reference_v_curve = self.radial_velocity_plot.plot(
+            pen=pg.mkPen("#54c7ec", width=2), name="DOP853 reference")
+        self.prediction_v_curve = self.radial_velocity_plot.plot(
+            pen=pg.mkPen("#ff6b8a", width=2, style=QtCore.Qt.PenStyle.DashLine),
+            name="PPO prediction")
+        self.radial_velocity_plot.addLegend()
 
         self.log = QtWidgets.QPlainTextEdit()
         self.log.setReadOnly(True)
@@ -201,6 +210,8 @@ class TrainingWindow(QtWidgets.QMainWindow):
             if phi:
                 self.reference_curve.setData(phi, ray.get("reference_u", []))
                 self.prediction_curve.setData(phi, ray.get("predicted_u", []))
+                self.reference_v_curve.setData(phi, ray.get("reference_v", []))
+                self.prediction_v_curve.setData(phi, ray.get("predicted_v", []))
                 self.trajectory_plot.setTitle(
                     f"Validation case {ray.get('case_id')} | r₀={ray.get('r0', 0):.3f} rₛ")
             self.log.appendPlainText(
