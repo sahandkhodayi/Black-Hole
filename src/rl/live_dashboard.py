@@ -76,7 +76,7 @@ class LiveTrainingDashboard(BaseCallback):
             pause_ax = self.figure.add_axes([.30, .035, .16, .055])
             stop_ax = self.figure.add_axes([.53, .035, .20, .055])
             self.pause_button = Button(pause_ax, "Pause")
-            self.stop_button = Button(stop_ax, "Stop & save")
+            self.stop_button = Button(stop_ax, "Quit & save")
             self.pause_button.on_clicked(self._toggle_pause)
             self.stop_button.on_clicked(self._request_stop)
             self.figure.canvas.mpl_connect("key_press_event", self._on_key)
@@ -336,10 +336,12 @@ class LiveTrainingDashboard(BaseCallback):
             self.rmse_v.append(val_v)
             self.last_report_time = now
 
-        latest_reward = self.reward_values[-1] if self.reward_values else None
-        self._write_history(latest_reward, policy, value, val_u, val_v)
-        # Validation and full graph redraw happen at most once per time interval.
+        # Persist dashboard metrics only on the reporting interval. Writing a
+        # CSV row after every PPO rollout caused avoidable filesystem activity
+        # during long runs (especially on WSL/Windows-mounted project folders).
         if report_due:
+            latest_reward = self.reward_values[-1] if self.reward_values else None
+            self._write_history(latest_reward, policy, value, val_u, val_v)
             self._refresh()
 
     def save_final_snapshot(self):
