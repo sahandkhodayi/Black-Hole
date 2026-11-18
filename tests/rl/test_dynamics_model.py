@@ -55,3 +55,12 @@ def test_predict_next_does_not_clip_valid_states_above_old_scale_limits():
 
     assert prediction[0] == pytest.approx(0.625)
     assert prediction[1] == pytest.approx(-0.3)
+
+
+@pytest.mark.parametrize("activation", ["relu", "tanh", "gelu", "silu", "elu"])
+@pytest.mark.parametrize(("width", "depth"), [(32, 2), (64, 3)])
+def test_configurable_mlp_architectures_are_finite(activation, width, depth):
+    model = PhotonDynamicsMLP(width=width, activation=activation, depth=depth)
+    output = model(torch.randn(8, 5))
+    assert output.shape == (8, 2)
+    assert torch.isfinite(output).all()
