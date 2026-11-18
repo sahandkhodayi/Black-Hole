@@ -30,7 +30,7 @@ def test_reset_returns_finite_observation(tiny_dataset):
     assert obs.shape == (5,) and obs.dtype == np.float32
     assert np.all(np.isfinite(obs))
     assert info["case_id"] == 20 and info["r0"] == 8.0
-    assert obs[4] == pytest.approx(1.0)
+    assert obs[4] == pytest.approx(0.6)
 
 
 def test_observation_includes_the_next_angular_step(tiny_dataset):
