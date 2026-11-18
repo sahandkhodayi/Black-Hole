@@ -12,20 +12,38 @@ U_SCALE = 0.5
 V_SCALE = 0.2
 
 
-class PhotonDynamicsMLP(nn.Module):
-    """Map the current ray state and angular step to the next (u, v)."""
+def activation_layer(name):
+    """Return a fresh activation module for a supported activation name."""
+    layers = {
+        "relu": nn.ReLU,
+        "tanh": nn.Tanh,
+        "gelu": nn.GELU,
+        "silu": nn.SiLU,
+        "elu": nn.ELU,
+    }
+    try:
+        return layers[name.lower()]()
+    except KeyError as exc:
+        raise ValueError(f"Unsupported activation {name!r}; choose from {sorted(layers)}") from exc
 
-    def __init__(self, width=128):
+
+class PhotonDynamicsMLP(nn.Module):
+    """Configurable MLP mapping the current ray state to the next (u, v)."""
+
+    def __init__(self, width=128, activation="gelu", depth=3):
         super().__init__()
-        self.network = nn.Sequential(
-            nn.Linear(5, width),
-            nn.GELU(),
-            nn.Linear(width, width),
-            nn.GELU(),
-            nn.Linear(width, width),
-            nn.GELU(),
-            nn.Linear(width, 2),
-        )
+        if width < 4 or depth < 1:
+            raise ValueError("width must be >= 4 and depth must be >= 1")
+        blocks = []
+        in_features = 5
+        for _ in range(depth):
+            blocks.extend((nn.Linear(in_features, width), activation_layer(activation)))
+            in_features = width
+        blocks.append(nn.Linear(width, 2))
+        self.network = nn.Sequential(*blocks)
+        self.width = int(width)
+        self.activation_name = activation.lower()
+        self.depth = int(depth)
 
     def forward(self, features):
         return self.network(features)
@@ -122,12 +140,14 @@ def predict_next(model, state, *, r0, phi, delta_phi, step_scale, device):
     ], dtype=float)
 
 
-def save_checkpoint(path, model, *, step_scale, width, best_epoch):
+def save_checkpoint(path, model, *, step_scale, width, best_epoch, activation="gelu", depth=3):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     torch.save({
         "state_dict": model.state_dict(),
         "step_scale": float(step_scale),
         "width": int(width),
+        "activation": str(activation),
+        "depth": int(depth),
         "best_epoch": int(best_epoch),
         "input_schema": ["r0/12", "phi/3", "u/0.5", "v/0.2", "delta_phi/step_scale"],
         "target_schema": ["next_u/0.5", "next_v/0.2"],
@@ -136,7 +156,11 @@ def save_checkpoint(path, model, *, step_scale, width, best_epoch):
 
 def load_checkpoint(path, device="cpu"):
     payload = torch.load(path, map_location=device, weights_only=True)
-    model = PhotonDynamicsMLP(width=int(payload["width"])).to(device)
+    model = PhotonDynamicsMLP(
+        width=int(payload["width"]),
+        activation=payload.get("activation", "gelu"),
+        depth=int(payload.get("depth", 3)),
+    ).to(device)
     model.load_state_dict(payload["state_dict"])
     model.eval()
     return model, float(payload["step_scale"]), payload
