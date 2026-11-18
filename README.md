@@ -4,7 +4,7 @@ A numerical-physics and machine-learning prototype studying photon trajectories 
 
 ## Start here
 
-**[Open the RL presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md)** for installation, timed training, and evaluation. For simple PNG figures without TensorBoard, see [Simple presentation plots](docs/SIMPLE_PRESENTATION_PLOTS.md). If PPO training is unstable, follow the [PPO stability update](docs/RL_STABILITY_UPDATE.md) and evaluate the validation-selected checkpoint. The [RL Learning Guidebook](GUIDEBOOK.md) remains the deeper theory and research-design reference.
+**[Start with supervised photon-dynamics learning](docs/SUPERVISED_DYNAMICS_GUIDE.md)** for the direct neural-network baseline and visual test-ray evaluation. The [PPO presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md) covers the separate reinforcement-learning experiment. For simple PNG figures without TensorBoard, see [Simple presentation plots](docs/SIMPLE_PRESENTATION_PLOTS.md). If PPO training is unstable, follow the [PPO stability update](docs/RL_STABILITY_UPDATE.md) and evaluate the validation-selected checkpoint. The [RL Learning Guidebook](GUIDEBOOK.md) remains the deeper theory and research-design reference.
 
 ## Current repository capabilities
 
@@ -13,6 +13,7 @@ A numerical-physics and machine-learning prototype studying photon trajectories 
 - Packed trajectory dataset generation and inspection.
 - Reproducible whole-trajectory train/validation/test splitting.
 - Numerical diagnostics, plots, weak-field comparison, and tests.
+- Supervised neural photon-dynamics model with whole-ray train/validation/test splits and autoregressive evaluation.
 - Teacher-guided PPO environment, training, evaluation, run-comparison, and presentation-plot scripts.
 
 ## Quick start
@@ -39,7 +40,7 @@ The former long README has been preserved at [docs/PROJECT_REFERENCE.md](docs/PR
 
 ## RL presentation prototype
 
-The teacher-guided PPO trajectory-tracking prototype is available in `src/rl/`. See [the presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md) for timed training runs, evaluation, and plots, and [presentation notes](docs/PRESENTATION_NOTES.md) for the slide script, physics, RL formulation, and likely questions. The current measured experiment is documented in [presentation results](docs/PRESENTATION_RESULTS.md). This is an experimental prototype; run it locally and report only measured results.
+The supervised next-state MLP is the recommended first learned dynamics baseline; see [its training and evaluation guide](docs/SUPERVISED_DYNAMICS_GUIDE.md). The teacher-guided PPO trajectory-tracking prototype remains available in `src/rl/` as a separate RL experiment. See [the presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md) for timed training runs, evaluation, and plots, and [presentation notes](docs/PRESENTATION_NOTES.md) for the slide script, physics, RL formulation, and likely questions. The current measured experiment is documented in [presentation results](docs/PRESENTATION_RESULTS.md). This is an experimental prototype; run it locally and report only measured results.
 
 ## Research scope
 
