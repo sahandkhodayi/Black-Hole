@@ -3,12 +3,14 @@ import argparse
 import json
 import time
 from pathlib import Path
+
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.monitor import Monitor
+
 from rl.callbacks import WallClockLimitCallback
-from rl.live_dashboard import LiveTrainingDashboard
 from rl.environment import PhotonTrajectoryEnv
+from rl.live_dashboard import LiveTrainingDashboard
 
 
 def read_ids(path, key):
@@ -27,26 +29,39 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--run-name", default=None)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
-    parser.add_argument("--live", action="store_true",
-                        help="Open the live dashboard; Ctrl+C or the Stop button saves and exits.")
-    parser.add_argument("--live-interval-seconds", type=float, default=60.0,
-                        help="Re-evaluate validation rays and refresh graphs every N seconds.")
+    parser.add_argument(
+        "--live", action="store_true",
+        help="Open the live dashboard; Ctrl+C or the Stop button saves and exits.",
+    )
+    parser.add_argument(
+        "--live-interval-seconds", type=float, default=60.0,
+        help="Re-evaluate validation rays and refresh graphs every N seconds.",
+    )
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
     if args.live_interval_seconds <= 0:
         parser.error("--live-interval-seconds must be positive")
+
     name = args.run_name or f"ppo_{int(args.seconds)}s_seed{args.seed}"
     run_dir = Path("outputs/rl_runs") / name
     run_dir.mkdir(parents=True, exist_ok=True)
-    train_ids, val_ids = read_ids(args.splits, "train"), read_ids(args.splits, "validation")
-    train_env = Monitor(PhotonTrajectoryEnv(args.dataset, train_ids, randomize_cases=True))
-    eval_env = Monitor(PhotonTrajectoryEnv(args.dataset, val_ids, randomize_cases=False))
+    train_ids = read_ids(args.splits, "train")
+    val_ids = read_ids(args.splits, "validation")
+    train_env = Monitor(
+        PhotonTrajectoryEnv(args.dataset, train_ids, randomize_cases=True)
+    )
+    eval_env = Monitor(
+        PhotonTrajectoryEnv(args.dataset, val_ids, randomize_cases=False)
+    )
+    raw_env = train_env.unwrapped
 
     # Smaller updates + a KL guard reduce destructive policy jumps. The
-    # positive bounded reward in the environment also keeps returns well-scaled.
+    # environment observation includes the upcoming delta-phi interval so the
+    # policy can handle the shortened final step at the exact escape event.
     model = PPO(
-        "MlpPolicy", train_env,
+        "MlpPolicy",
+        train_env,
         learning_rate=1e-4,
         n_steps=512,
         batch_size=128,
@@ -65,14 +80,24 @@ def main():
     model.save(run_dir / "initial_model")
     dashboard = LiveTrainingDashboard(
         run_dir, eval_env, val_ids,
-        interval_seconds=args.live_interval_seconds, enabled=args.live)
+        interval_seconds=args.live_interval_seconds, enabled=args.live,
+    )
     callbacks = [
         WallClockLimitCallback(args.seconds),
-        CheckpointCallback(save_freq=1000, save_path=str(run_dir / "checkpoints"),
-                           name_prefix="ppo_photon"),
-        EvalCallback(eval_env, best_model_save_path=str(run_dir / "best"),
-                     log_path=str(run_dir / "evaluation"), eval_freq=1000,
-                     n_eval_episodes=min(4, len(val_ids)), deterministic=True, verbose=1),
+        CheckpointCallback(
+            save_freq=1000,
+            save_path=str(run_dir / "checkpoints"),
+            name_prefix="ppo_photon",
+        ),
+        EvalCallback(
+            eval_env,
+            best_model_save_path=str(run_dir / "best"),
+            log_path=str(run_dir / "evaluation"),
+            eval_freq=1000,
+            n_eval_episodes=min(4, len(val_ids)),
+            deterministic=True,
+            verbose=1,
+        ),
         dashboard,
     ]
     config = {
@@ -84,7 +109,14 @@ def main():
         "splits": args.splits,
         "train_case_ids": train_ids,
         "validation_case_ids": val_ids,
-        "observation": ["r0/12", "phi/3", "current_u/0.5", "current_v/0.2"],
+        "observation": [
+            "r0/12",
+            "phi/3",
+            "current_u/0.5",
+            "current_v/0.2",
+            "next_delta_phi/step_scale",
+        ],
+        "step_scale": raw_env.step_scale,
         "action": ["u in [0, 0.5]", "v in [-0.2, 0.2]"],
         "reward": "1 / (1 + ((u_pred-u_ref)/0.5)^2 + ((v_pred-v_ref)/0.2)^2)",
         "policy": "MlpPolicy",
@@ -98,16 +130,27 @@ def main():
         "clip_range": 0.15,
         "ent_coef": 0.005,
         "target_kl": 0.03,
-        "checkpoint_selection": "Use best/best_model.zip selected by validation reward; final_model.zip is the last iterate.",
+        "checkpoint_selection": (
+            "Use best/best_model.zip selected by validation reward; "
+            "final_model.zip is the last iterate."
+        ),
         "live_dashboard": args.live,
         "live_report_interval_seconds": args.live_interval_seconds,
+        "observation_schema_version": 2,
     }
-    (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    (run_dir / "config.json").write_text(
+        json.dumps(config, indent=2) + "\n", encoding="utf-8"
+    )
+
     started = time.monotonic()
     interrupted = False
     try:
-        model.learn(total_timesteps=10_000_000, callback=callbacks,
-                    progress_bar=False, tb_log_name=name)
+        model.learn(
+            total_timesteps=10_000_000,
+            callback=callbacks,
+            progress_bar=False,
+            tb_log_name=name,
+        )
     except KeyboardInterrupt:
         interrupted = True
         print("\nTraining interrupted by user; saving the current policy...")
@@ -117,19 +160,23 @@ def main():
             model.save(run_dir / "final_model")
             config["seconds_actual"] = elapsed
             config["timesteps_actual"] = int(model.num_timesteps)
-            config["stopped_early"] = bool(interrupted or dashboard.stop_requested)
+            config["stopped_early"] = bool(
+                interrupted or dashboard.stop_requested
+            )
             (run_dir / "config.json").write_text(
                 json.dumps(config, indent=2) + "\n", encoding="utf-8"
             )
         finally:
-            # SB3 may skip callback shutdown when KeyboardInterrupt propagates.
-            # Save the final plot explicitly; this is idempotent after normal exit.
             try:
                 dashboard.save_final_snapshot()
             finally:
                 train_env.close()
                 eval_env.close()
-    print(f"Saved {run_dir}; elapsed={elapsed:.1f}s; timesteps={model.num_timesteps}")
+
+    print(
+        f"Saved {run_dir}; elapsed={elapsed:.1f}s; "
+        f"timesteps={model.num_timesteps}"
+    )
     print(f"Validation-selected checkpoint: {run_dir / 'best' / 'best_model.zip'}")
 
 

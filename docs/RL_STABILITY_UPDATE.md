@@ -1,57 +1,55 @@
 # PPO stability update
 
-The PPO prototype has been updated to use a bounded positive tracking reward and
-more conservative policy updates.
+The PPO prototype uses a bounded positive tracking reward, conservative
+policy updates, and an observation that includes the upcoming angular step.
 
 ## Important: start a fresh run
 
-The reward definition changed. Do not resume or compare an old checkpoint as if
-it had been trained with the new reward. Pull the latest code and start a new
-run with a new name:
+The observation schema changed from four to five values. Existing PPO
+checkpoints were trained with the old observation shape and are **not
+compatible** with this version. Do not resume an old checkpoint or compare
+it as though it used the new environment. Start a fresh run with a new name:
 
 ```powershell
-git pull
 python -m pip install -e ".[dev,rl]"
 python -m pytest -q
-python -m rl.train --seconds 600 --seed 42 --run-name stable_v1
+python -m rl.train --seconds 600 --seed 42 --run-name ppo_stepaware_v2
 ```
 
 The training script saves:
 - `initial_model.zip`: untrained starting policy.
 - `final_model.zip`: last policy produced before the time limit.
-- `best/best_model.zip`: policy with the best validation reward during training.
+- `best/best_model.zip`: policy with the best validation reward.
 
 **Evaluate the best checkpoint first**, not automatically the final checkpoint:
 
 ```powershell
-python -m rl.evaluate --model outputs/rl_runs/stable_v1/best/best_model.zip --split test --output outputs/rl_runs/stable_v1/evaluation_best
+python -m rl.evaluate --model outputs/rl_runs/ppo_stepaware_v2/best/best_model.zip --split test --output outputs/rl_runs/ppo_stepaware_v2/evaluation_test
 ```
 
-Then compare initial and best on the same held-out test rays:
+## Why the observation changed
 
-```powershell
-python -m rl.evaluate --model outputs/rl_runs/stable_v1/initial_model.zip --split test --output outputs/rl_runs/stable_v1/evaluation_initial
-python -m rl.presentation_plots outputs/rl_runs/stable_v1
-```
+The dataset samples rays at a nominal angular spacing, but the last interval
+is shorter because the reference includes the exact DOP853 escape event.
+Previously, the policy observed (r_0), (phi), (u), and (v), but not
+the size of the next integration interval. It therefore had no direct input
+that distinguished a normal sample transition from the shortened final
+transition. The fifth observation is
 
-For the plotting script to include both bars, copy the best evaluation summary
-into the expected trained-policy location, or evaluate the best checkpoint
-directly into that location:
+`next_delta_phi / step_scale`
 
-```powershell
-python -m rl.evaluate --model outputs/rl_runs/stable_v1/best/best_model.zip --split test --output outputs/rl_runs/stable_v1/evaluation_final
-```
+where `step_scale` is the largest positive interval in the loaded dataset.
+The environment exposes this interval before every action. This is an
+information correction, not a claim that PPO will become accurate by itself.
 
-## What changed
+## Reward and optimizer
 
-- Reward is now `1 / (1 + normalized_squared_error)`, so it stays in (0, 1]
-  and gives a higher reward to smaller prediction errors.
-- PPO learning rate reduced to `1e-4`.
-- Rollout length increased to `512`; batch size `128`.
-- Smaller policy clip range `0.15`, modest entropy coefficient `0.005`,
-  and `target_kl=0.03` to limit destructive policy updates.
-- Checkpoint and validation frequency set to every 1,000 steps.
+- Reward: `1 / (1 + normalized_squared_error)`, bounded in (0, 1].
+- Learning rate: `1e-4`.
+- Rollout length: `512`; batch size: `128`.
+- Policy clip range: `0.15`; entropy coefficient: `0.005`.
+- KL guard: `target_kl=0.03`.
 
-These are stability-oriented changes, not a guarantee that PPO will beat
-DOP853. DOP853 remains the numerical reference. Judge success using the
-held-out test RMSE and trajectory overlays, not training reward alone.
+These settings are stability-oriented, not a guarantee that PPO will beat
+DOP853. Judge success using held-out trajectory RMSE, orbit overlays, and
+physical diagnostics—not training reward alone. DOP853 remains the reference.

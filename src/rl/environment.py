@@ -1,12 +1,14 @@
 """Teacher-guided sequential photon trajectory environment."""
 from pathlib import Path
-import numpy as np
+
 import gymnasium as gym
+import numpy as np
 from gymnasium import spaces
 
 
 class PhotonTrajectoryEnv(gym.Env):
     """Predict the next (u, v) state; reference targets shape reward only."""
+
     metadata = {"render_modes": []}
 
     def __init__(self, dataset_path, case_ids, *, randomize_cases=True):
@@ -17,6 +19,7 @@ class PhotonTrajectoryEnv(gym.Env):
             if missing:
                 raise ValueError(f"Dataset missing arrays: {sorted(missing)}")
             self.data = {key: np.asarray(archive[key]) for key in required}
+
         ids = np.asarray(case_ids, dtype=np.int64)
         if ids.ndim != 1 or not ids.size:
             raise ValueError("case_ids must be a non-empty 1D list")
@@ -27,7 +30,24 @@ class PhotonTrajectoryEnv(gym.Env):
         self.case_ids = ids
         self.randomize_cases = bool(randomize_cases)
         self._next_case = 0
-        self.observation_space = spaces.Box(-1.0, 1.0, shape=(4,), dtype=np.float32)
+
+        # The final interval of each ray is generally shorter than delta_phi:
+        # it ends at the exact DOP853 escape event. The policy must observe
+        # that upcoming interval or it cannot know the correct next state.
+        step_sizes = []
+        offsets = self.data["offsets"]
+        for start, end in zip(offsets[:-1], offsets[1:]):
+            ray_steps = np.diff(self.data["phi"][int(start):int(end)])
+            if ray_steps.size:
+                if not np.all(np.isfinite(ray_steps)) or np.any(ray_steps <= 0):
+                    raise ValueError("Each ray must have strictly increasing finite phi values")
+                step_sizes.extend(ray_steps.tolist())
+        if not step_sizes:
+            raise ValueError("Dataset must contain at least one trajectory transition")
+        self.step_scale = float(max(step_sizes))
+
+        # [r0, phi, current u, current v, next angular step], all normalized.
+        self.observation_space = spaces.Box(-1.0, 1.0, shape=(5,), dtype=np.float32)
         self.action_space = spaces.Box(-1.0, 1.0, shape=(2,), dtype=np.float32)
         self.u_scale, self.v_scale = 0.5, 0.2
         self.r_scale, self.phi_scale = 12.0, 3.0
@@ -36,16 +56,29 @@ class PhotonTrajectoryEnv(gym.Env):
     def _load_ray(self, case_id):
         pos = self.positions[int(case_id)]
         start, end = self.data["offsets"][pos:pos + 2]
-        return (float(self.data["r0"][pos]),
-                self.data["phi"][start:end].astype(float, copy=True),
-                self.data["u"][start:end].astype(float, copy=True),
-                self.data["v"][start:end].astype(float, copy=True))
+        phi = self.data["phi"][start:end].astype(float, copy=True)
+        if len(phi) < 2:
+            raise ValueError(f"Trajectory {case_id} must contain at least two samples")
+        return (
+            float(self.data["r0"][pos]),
+            phi,
+            self.data["u"][start:end].astype(float, copy=True),
+            self.data["v"][start:end].astype(float, copy=True),
+        )
 
     def _obs(self):
-        obs = np.asarray([self.r0 / self.r_scale,
-                          self.phi[self.index] / self.phi_scale,
-                          self.u / self.u_scale,
-                          self.v / self.v_scale], dtype=np.float32)
+        next_index = min(self.index + 1, len(self.phi) - 1)
+        next_delta_phi = float(self.phi[next_index] - self.phi[self.index])
+        obs = np.asarray(
+            [
+                self.r0 / self.r_scale,
+                self.phi[self.index] / self.phi_scale,
+                self.u / self.u_scale,
+                self.v / self.v_scale,
+                next_delta_phi / self.step_scale,
+            ],
+            dtype=np.float32,
+        )
         return np.clip(obs, -1.0, 1.0)
 
     def reset(self, *, seed=None, options=None):
@@ -65,8 +98,12 @@ class PhotonTrajectoryEnv(gym.Env):
         self.index = 0
         self.u, self.v = float(self.target_u[0]), float(self.target_v[0])
         self._done = False
-        return self._obs(), {"case_id": case_id, "r0": self.r0,
-                             "reference_samples": len(self.phi)}
+        return self._obs(), {
+            "case_id": case_id,
+            "r0": self.r0,
+            "reference_samples": len(self.phi),
+            "step_scale": self.step_scale,
+        }
 
     def step(self, action):
         if self._done:
@@ -78,23 +115,29 @@ class PhotonTrajectoryEnv(gym.Env):
         next_index = min(self.index + 1, len(self.phi) - 1)
         proposed_u = float((action[0] + 1.0) * 0.5 * self.u_scale)
         proposed_v = float(action[1] * self.v_scale)
-        target_u, target_v = float(self.target_u[next_index]), float(self.target_v[next_index])
+        target_u = float(self.target_u[next_index])
+        target_v = float(self.target_v[next_index])
         eu = (proposed_u - target_u) / self.u_scale
         ev = (proposed_v - target_v) / self.v_scale
 
-        # A bounded, non-negative reward avoids the large negative episode
-        # returns produced by the previous quadratic reward after policy drift.
-        # It remains smooth and strictly prefers smaller normalized state error.
+        # Bounded, non-negative tracking reward; lower normalized state error
+        # always produces a higher reward.
         squared_error = eu * eu + ev * ev
         reward = float(1.0 / (1.0 + squared_error))
 
         self.u, self.v, self.index = proposed_u, proposed_v, next_index
         terminated = self.index == len(self.phi) - 1
         self._done = bool(terminated)
-        info = {"case_id": self.case_id, "phi": float(self.phi[self.index]),
-                "reference_u": target_u, "reference_v": target_v,
-                "predicted_u": proposed_u, "predicted_v": proposed_v,
-                "u_abs_error": abs(proposed_u - target_u),
-                "v_abs_error": abs(proposed_v - target_v),
-                "normalized_squared_error": squared_error}
+        info = {
+            "case_id": self.case_id,
+            "phi": float(self.phi[self.index]),
+            "delta_phi": float(self.phi[self.index] - self.phi[self.index - 1]),
+            "reference_u": target_u,
+            "reference_v": target_v,
+            "predicted_u": proposed_u,
+            "predicted_v": proposed_v,
+            "u_abs_error": abs(proposed_u - target_u),
+            "v_abs_error": abs(proposed_v - target_v),
+            "normalized_squared_error": squared_error,
+        }
         return self._obs(), reward, terminated, False, info
