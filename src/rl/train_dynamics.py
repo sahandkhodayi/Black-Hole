@@ -39,7 +39,7 @@ def main():
     parser.add_argument("--patience", type=int, default=30)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--run-name", default="dynamics_supervised")
-    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
     args = parser.parse_args()
     if min(args.epochs, args.batch_size, args.patience) <= 0:
         parser.error("epochs, batch-size, and patience must be positive")
