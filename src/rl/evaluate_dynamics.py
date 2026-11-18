@@ -160,7 +160,7 @@ def main():
     orbit_ax.spines[["top", "right"]].set_visible(False)
     fig.suptitle(
         f"Learned photon dynamics — unseen {args.split} trajectories",
-        fontsize=16, fontweight="semibold",
+        fontsize=16, fontweight="bold",
     )
     fig.text(
         0.5, 0.015,
@@ -176,6 +176,10 @@ def main():
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
+    # Aggregate per-ray rollout errors only after every selected ray has
+    # been evaluated. These are test-set diagnostics, not training targets.
+    mean_u = float(np.mean([row["rmse_u"] for row in rows]))
+    mean_v = float(np.mean([row["rmse_v"] for row in rows]))
     summary = {
         "model": "supervised MLP",
         "split": args.split,
