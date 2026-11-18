@@ -41,7 +41,7 @@ def main():
 
     for index, (activation, width, depth) in enumerate(candidates, start=1):
         name = f"{args.run_name}_{activation}_w{width}_d{depth}"
-        print(f"\\n[{index}/{len(candidates)}] {name}", flush=True)
+        print(f"\n[{index}/{len(candidates)}] {name}", flush=True)
         subprocess.run([
             sys.executable, "-m", "rl.train_dynamics",
             "--dataset", args.dataset, "--splits", args.splits,
@@ -87,14 +87,14 @@ def main():
         "best_model": best,
         "leaderboard": ranked,
     }
-    (root / "leaderboard.json").write_text(json.dumps(report, indent=2) + "\\n", encoding="utf-8")
+    (root / "leaderboard.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     (root / "BEST_MODEL.txt").write_text(
-        f"Best validation model: {best['name']}\\n"
-        f"Checkpoint: {best['checkpoint']}\\n"
-        f"Normalized validation rollout score: {best['normalized_rollout_score']:.8f}\\n",
+        f"Best validation model: {best['name']}\n"
+        f"Checkpoint: {best['checkpoint']}\n"
+        f"Normalized validation rollout score: {best['normalized_rollout_score']:.8f}\n",
         encoding="utf-8",
     )
-    print("\\nBEST VALIDATION MODEL")
+    print("\nBEST VALIDATION MODEL")
     print(json.dumps(best, indent=2))
 
 
