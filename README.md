@@ -4,6 +4,8 @@ A numerical-physics and machine-learning prototype studying photon trajectories 
 
 ## Start here
 
+**[Presentation runbook](docs/PRESENTATION_RUNBOOK.md)** restores a clean run after deleting generated outputs and gives the exact PowerShell commands for data generation, training, and visual evaluation.
+
 **[Presentation research protocol](docs/PRESENTATION_RESEARCH_PROTOCOL.md)** defines the equation-hidden RL, supervised MLP, PINN, and scientific evidence tracks, including reproducible training-time snapshots.
 
 **[Start with supervised photon-dynamics learning](docs/SUPERVISED_DYNAMICS_GUIDE.md)** for the direct neural-network baseline and visual test-ray evaluation. The [PPO presentation quickstart](docs/RL_PRESENTATION_QUICKSTART.md) covers the separate reinforcement-learning experiment. For simple PNG figures without TensorBoard, see [Simple presentation plots](docs/SIMPLE_PRESENTATION_PLOTS.md). If PPO training is unstable, follow the [PPO stability update](docs/RL_STABILITY_UPDATE.md) and evaluate the validation-selected checkpoint. The [RL Learning Guidebook](GUIDEBOOK.md) remains the deeper theory and research-design reference.
