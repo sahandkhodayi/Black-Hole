@@ -17,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 rl = ["gymnasium>=1.0", "stable-baselines3>=2.5", "tensorboard>=2.17"]
+gui = ["PySide6>=6.7", "pyqtgraph>=0.13.7"]
 test-rl = ["gymnasium>=1.0"]
 
 [tool.setuptools.packages.find]
