@@ -1,222 +1,174 @@
 # Presentation notes — Black Hole Lab
 
-These notes are a speaker guide for a short university presentation. The
-project combines a numerical-physics simulation with an experimental
-reinforcement-learning baseline.
-
 ## Suggested title
 
-**Learning to Track Photon Trajectories Around a Schwarzschild Black Hole**
+**Can AI Learn Photon Dynamics Around a Black Hole Without Being Given the Equations?**
 
-Subtitle: A numerical reference solver and a teacher-guided PPO experiment.
+Subtitle: Comparing black-box interaction, neural-network learning, and numerical physics.
 
-## 60-second opening
+## The central research question
 
-"Light does not travel in a straight line near a massive object. In this
-project, I simulate the path of photons around an idealized Schwarzschild
-black hole. First, I solve the photon-orbit equation numerically using
-SciPy's DOP853 integrator. Then I formulate a reinforcement-learning task:
-a PPO agent predicts the next point of a photon trajectory, receives a reward
-based on its difference from the numerical reference, and feeds its own
-prediction into the next step. The goal is to test how well a learned policy
-can track these trajectories—not to claim that the agent discovered
-Einstein's equations."
+Can learning systems approximate the behaviour of photons around a Schwarzschild
+black hole when the governing geodesic equation is not supplied directly to
+the learner? How much information does each learning approach require, and
+how well does it generalize to unseen initial conditions?
 
-## Slide 1 — Motivation and objective
+This is a research question, not a claim that AI proves general relativity.
 
-- Gravitational curvature changes the paths of light.
-- The Schwarzschild model gives an idealized, non-rotating, uncharged black
-  hole.
-- Numerical integration provides reference photon trajectories.
-- Machine learning experiment: can a sequential policy approximate those
-  trajectories?
+## Opening (about 45 seconds)
 
-Say explicitly that this is a simplified model, not a full astrophysical
-simulation.
+"Light paths are curved by gravity. I first built a numerical reference
+simulation for photon trajectories around an idealized Schwarzschild black
+hole. The research question is whether AI can learn aspects of this behaviour
+without being directly given the governing differential equation. I compare
+different information settings: an interaction-based reinforcement-learning
+experiment, a neural network trained on reference trajectories, and a
+physics-informed approach. Finally, I test the learned predictions against
+held-out numerical simulations and known physical behaviour."
 
-## Slide 2 — Physics
+Do not say that the equation-hidden RL experiment is complete until its
+separate black-box environment has been implemented and evaluated.
 
-Use normalized units with Schwarzschild radius \(r_s=1\). Define
+## Slide 1 — Why this is interesting
 
-\[
-u(\phi)=\frac{1}{r(\phi)}.
-\]
+- A black hole changes the paths of nearby light.
+- The Schwarzschild solution is a controlled, idealized setting.
+- Numerical integration gives a trusted reference for experiments.
+- The ML question is whether a model can reproduce unseen trajectories
+  without being given the governing equation as an input.
 
-The orbit equation in this project is
+## Slide 2 — Reference physics
 
-\[
-\frac{d^2u}{d\phi^2}+u=\frac{3}{2}u^2.
-\]
+Use dimensionless units with Schwarzschild radius r_s = 1.
 
-Let \(v=du/d\phi\), giving
+- Event horizon: r = 1.
+- Photon sphere: r = 1.5.
+- Inverse radius: u = 1/r.
+- Independent variable: azimuthal angle phi.
+- State: (u, v), where v = du/dphi.
 
-\[
-u'=v,\qquad v'=\frac{3}{2}u^2-u.
-\]
+The reference equation is
 
-At closest approach \(r_0\),
+    u'' + u = 1.5u^2
 
-\[
-u(0)=\frac{1}{r_0},\qquad v(0)=0.
-\]
+or, as a first-order system,
 
-The event horizon is at \(r=1\); the photon sphere is at \(r=1.5\). The
-reference solver integrates escaping rays until \(u\) approaches zero.
+    u' = v,  v' = 1.5u^2 - u.
 
-## Slide 3 — Numerical reference and dataset
+The initial conditions at closest approach are
 
-- SciPy `solve_ivp` with DOP853 integrates the first-order ODE.
-- The dataset stores complete rays in packed arrays: `case_id`, `r0`,
-  `phi`, `u`, `v`, and `offsets`.
-- Splitting is performed by whole ray, not by individual samples.
-- The tracked split manifest contains 21 training, 4 validation, and 5 test
-  rays.
+    u(0) = 1/r_0,  v(0) = 0.
 
-Why split by ray? Samples from one trajectory are strongly related. Putting
-points from the same ray into both train and test would leak trajectory
-information and make evaluation too optimistic.
+SciPy DOP853 integrates this system and detects outward escape at u = 0.
+This equation is disclosed to the audience and used by the reference solver.
+It is not supplied as an input feature to the supervised MLP.
 
-## Slide 4 — RL formulation
+## Slide 3 — Three information regimes
 
-The policy observation is
+| Method | What the learner receives | What it tests |
+|---|---|---|
+| Black-box RL (planned) | Interaction and sparse outcome feedback; no pointwise DOP853 targets | Can an agent discover useful behaviour from outcomes? |
+| Supervised MLP (implemented) | DOP853 state-transition examples, but no governing equation input | Can a neural model generalize from examples? |
+| PINN (future) | Differential-equation residual and initial/boundary conditions | Do explicit physics constraints improve learning? |
 
-\[
-o_t=\left[\frac{r_0}{12},\frac{\phi_t}{3},
-\frac{u_t}{0.5},\frac{v_t}{0.2}\right].
-\]
+The existing PPO trajectory environment is a separate **teacher-guided PPO
+baseline**: its reward compares each predicted next state with a DOP853 target.
+It is not the equation-hidden black-box RL experiment. Never combine the
+results or call them the same method.
 
-The continuous action is (a_t\in[-1,1]^2), decoded as
+## Slide 4 — Supervised neural model
 
-\[
-u_{t+1}^{(p)}=0.25(a_1+1),\qquad
-v_{t+1}^{(p)}=0.2a_2.
-\]
+The MLP learns the one-step map
 
-The reference next state is used by the environment for reward, but it is not
-included in the policy observation. Define normalized tracking errors
+    (r_0, phi, u, v, delta_phi) -> (u_next, v_next)
 
-\[
-e_u=\frac{u_{t+1}^{(p)}-u_{t+1}^{(*)}}{0.5},\qquad
-e_v=\frac{v_{t+1}^{(p)}-v_{t+1}^{(*)}}{0.2}.
-\]
+from DOP853 transitions. Complete trajectories are assigned to train,
+validation, or test splits. The final test rollout is autoregressive: each
+predicted state is fed back into the next model input.
 
-The current reward is
+The key visual is the held-out comparison:
+- solid line: DOP853 reference;
+- dashed line: MLP prediction;
+- multiple closest-approach radii, including strong and weak bending.
 
-\[
-R_t=\frac{1}{1+e_u^2+e_v^2}.
-\]
+A low one-step validation loss is not enough. Prediction errors can
+accumulate during autoregressive rollout.
 
-It lies in \((0,1]\): a perfect next-state prediction earns 1, and larger
-normalized errors earn less. The policy is autoregressive: its predicted
-state becomes the current state for the next decision.
+## Slide 5 — Black-box RL experiment (planned)
 
-## Slide 5 — PPO and experiment design
+The agent must not receive the geodesic equation, pointwise DOP853 target
+states, or a reward based on pointwise DOP853 error. The environment exposes
+only a declared black-box interaction and sparse outcome feedback.
 
-PPO (Proximal Policy Optimization) is a policy-gradient algorithm suitable
-for continuous actions. Its clipped objective discourages excessively large
-policy updates.
+A defensible first target is learning a critical capture/escape boundary or
+another observable property from repeated interactions. After training, the
+learned result can be compared with the theoretical photon-sphere behaviour.
+The experiment's observation, action, reward, and termination rules must be
+documented before training.
 
-Current stable configuration:
-- MLP policy with hidden layers [64, 64];
-- learning rate \(10^{-4}\);
-- rollout length 512;
-- batch size 128;
-- 10 epochs per update;
-- discount factor 0.99;
-- GAE lambda 0.95;
-- clip range 0.15;
-- entropy coefficient 0.005;
-- target KL 0.03.
+This tests discovery of a physical property through interaction. It does not,
+by itself, mean the agent has learned a complete general-purpose simulator.
 
-These are experimental settings, not a theoretically optimal configuration.
-The training reward is episode return, i.e. the sum of per-step rewards.
-Since trajectories contain different numbers of samples, reward values are
-not directly comparable across rays of different lengths.
+## Slide 6 — Evidence, not just attractive plots
 
-## Slide 6 — Results and interpretation
+Show:
+1. DOP853 reference trajectories for weak, moderate, and strong bending.
+2. MLP autoregressive predictions on held-out rays.
+3. Training and validation loss history.
+4. A separate RL learning progression once the black-box experiment exists.
+5. Quantitative checks in a technical appendix: held-out errors, deflection
+   angles, critical behaviour, and physical consistency.
 
-Use the actual plots and metrics from
-[PRESENTATION_RESULTS.md](PRESENTATION_RESULTS.md) and the generated files in `outputs/rl_figures/`.
+Use identical initial conditions and plot scales for comparisons. State the
+dataset size, split counts, seed, solver tolerances, and actual training
+duration. A visually similar curve is evidence, not proof by itself.
 
-For the reported `stable_v1` run:
-- the held-out test set contains five complete rays;
-- mean test RMSE in \(u\) decreased from about 0.159 to 0.1039;
-- mean test RMSE in \(v\) decreased from about 0.111 to 0.0679;
-- this corresponds to roughly 35% and 39% reductions, respectively.
+## Slide 7 — Limitations and honest conclusions
 
-These baseline values are read approximately from the initial-versus-trained
-bar chart; the trained values are calculated from the five per-ray rows
-provided in the evaluation CSV. Replace approximate initial values with
-exact initial `summary.json` values if available.
-
-The trajectory overlay still shows a visible mismatch: some PPO predictions
-remain nearly flat while the DOP853 inverse-radius curves approach zero.
-Therefore, the accurate conclusion is that PPO improved average test RMSE
-relative to its untrained initialization, but has not yet learned accurate
-full-trajectory tracking.
-
-## Slide 7 — Limitations and next work
-
-1. The reward uses DOP853 teacher targets: this is teacher-guided RL.
-2. The episode ends at the final reference sample; PPO does not decide whether
-   a ray escapes or is captured.
-3. The dataset and held-out test set are small.
-4. One seed does not establish robustness.
-5. DOP853 remains the numerical accuracy reference.
-6. A supervised MLP baseline is an important future comparison; a PINN is a
-   separate future direction.
-
-Next technical work should diagnose whether the policy learns near-constant
-actions, inspect per-step errors, and compare against simple baselines before
-adding complexity to the reward.
+- DOP853 is the numerical reference, not experimental astronomical data.
+- The supervised MLP learns from DOP853-generated examples.
+- The current PPO environment is teacher-guided, not equation-hidden.
+- The black-box RL experiment is a separate implementation milestone.
+- A PINN explicitly uses the equation and must be described as physics-informed.
+- The small tracked v2 dataset is a smoke-test dataset; use a larger frozen
+  dataset for final generalization claims.
+- No model has proved Einstein's equations.
 
 ## Likely questions
 
-**Did the AI discover Einstein's equations?**  
-No. The orbit equation is specified by the Schwarzschild model. PPO learns a
-policy to approximate trajectories generated by a numerical solver.
+**Did AI discover Einstein's equations?**
 
-**Why use RL instead of supervised learning?**  
-The experiment studies sequential decisions with feedback: each prediction
-becomes the next state. This does not prove RL is better. A supervised MLP is
-a necessary future baseline.
+No. The reference equation comes from the Schwarzschild model. The
+experiments test how well different learning methods approximate selected
+behaviour under explicitly stated information constraints.
 
-**Does PPO see the correct future state?**  
-No. The future DOP853 state is used internally to calculate reward and
-evaluation metrics. It is not part of the observation.
+**Does the supervised MLP know the equation?**
 
-**Why is the PPO curve not identical to DOP853?**  
-The policy has limited data and training, and it feeds its own imperfect
-predictions back into subsequent decisions. Errors can accumulate.
+It is not given the equation as an input or loss. It learns from numerical
+state-transition examples generated by DOP853.
 
-**Why is DOP853 better?**  
-DOP853 numerically integrates the specified differential equation at tight
-tolerances. PPO is an approximate learned policy, not a replacement for the
-numerical solver.
+**Is the existing PPO fully autonomous?**
 
-**What does the reward mean?**  
-It measures one-step normalized state tracking error. Reward 1 means a
-perfect next-state prediction; lower values indicate larger error.
+No. The existing PPO reward uses the next DOP853 state. It is a teacher-guided
+trajectory-tracking baseline. The equation-hidden black-box RL task is
+separate and must not be represented as completed yet.
 
-**Does episode termination mean the agent detected escape?**  
-No. The episode ends at the last sample of the reference trajectory. Escape
-detection is not learned in this version.
+**Why use DOP853?**
 
-**How did you avoid data leakage?**  
-Whole trajectories, rather than individual samples, were assigned to train,
-validation, or test splits.
+It provides a high-accuracy numerical reference for the specified ODE. It
+allows controlled generation of trajectories and held-out comparisons.
 
-**What is the strongest result so far?**  
-On five held-out rays, the trained stable_v1 policy reduced average RMSE
-relative to its initial policy. The trajectory overlay still shows substantial
-tracking error, so this is preliminary progress rather than a solved task.
+**What does a successful result mean?**
+
+A model reproduces trajectories or physical observables on held-out initial
+conditions, with measured error and disclosed assumptions. It does not mean
+that the model proves the underlying theory.
 
 ## Presenter checklist
 
-- [ ] Open the orbit/u/v comparison figure.
-- [ ] Open the initial-versus-trained test RMSE figure.
-- [ ] Know the exact Git commit and training seed.
-- [ ] Keep the five-ray test-set limitation visible.
-- [ ] Do not call the model an autonomous black-hole simulator or physics
-      discovery system.
-- [ ] Keep the source code and repository available for questions.
+- [ ] Use the new presentation runbook to recreate outputs.
+- [ ] Show the reference geometry and the MLP held-out comparison.
+- [ ] Keep solid-reference and dashed-prediction styles consistent.
+- [ ] Record the dataset, split manifest, seed, commit, and training duration.
+- [ ] Clearly distinguish planned black-box RL from existing teacher-guided PPO.
+- [ ] Do not claim independent physics discovery or proof of general relativity.
