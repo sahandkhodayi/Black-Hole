@@ -49,7 +49,7 @@ The dashboard starts the trainer automatically. Do not start a second
 - **Pause / Resume** pauses PPO updates through the trainer's control channel.
 - **Stop & save** asks the trainer to stop cleanly; the training script writes
   `final_model.zip` and updates `config.json`.
-- Closing the window also requests a clean stop and waits briefly for saving.
+- Closing the window requests a clean stop and keeps the UI event loop alive until the trainer exits and saves its final model.
 - Episode reward and its five-episode moving average update as episodes finish.
 - Policy/value losses update after PPO rollouts.
 - Validation RMSE and the first held-out validation ray update on the
