@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import tempfile
 from pathlib import Path
 
 from PySide6 import QtCore, QtWidgets
@@ -40,6 +39,7 @@ class TrainingWindow(QtWidgets.QMainWindow):
         self._process.setProcessChannelMode(QtCore.QProcess.ProcessChannelMode.MergedChannels)
         self._process.readyReadStandardOutput.connect(self._read_process_output)
         self._process.finished.connect(self._process_finished)
+        self._closing = False
 
         self.run_dir = Path("outputs/rl_runs") / (run_name or f"ppo_{self.seconds}s_seed42")
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -145,6 +145,8 @@ class TrainingWindow(QtWidgets.QMainWindow):
         self.pause_button.setEnabled(False)
         self.stop_button.setEnabled(False)
         self.log.appendPlainText(f"Training process exited with code {code}.")
+        if self._closing:
+            self.close()
 
     def _toggle_pause(self):
         paused = self.pause_button.text() == "Pause"
@@ -195,8 +197,8 @@ class TrainingWindow(QtWidgets.QMainWindow):
                 self.reward_mean_curve.setData(self._timesteps[4:], smooth)
         elif event == "metrics":
             self._steps_for_loss.append(step)
-            self._policy_losses.append(record.get("policy_loss"))
-            self._value_losses.append(record.get("value_loss"))
+            self._policy_losses.append(float("nan") if record.get("policy_loss") is None else record["policy_loss"])
+            self._value_losses.append(float("nan") if record.get("value_loss") is None else record["value_loss"])
             self.policy_curve.setData(self._steps_for_loss, self._policy_losses)
             self.value_curve.setData(self._steps_for_loss, self._value_losses)
         elif event == "validation":
@@ -222,12 +224,13 @@ class TrainingWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         if self._process.state() != QtCore.QProcess.ProcessState.NotRunning:
+            # Keep the Qt event loop alive while the trainer finishes its
+            # current validation section and saves final_model.zip.
+            self._closing = True
             self.control_path.write_text("stop", encoding="utf-8")
-            if not self._process.waitForFinished(5000):
-                self._process.terminate()
-                if not self._process.waitForFinished(2000):
-                    self._process.kill()
-                    self._process.waitForFinished(1000)
+            self.status_label.setText("Stopping — waiting for model save…")
+            event.ignore()
+            return
         event.accept()
 
 
