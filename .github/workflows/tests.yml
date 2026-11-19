@@ -20,6 +20,6 @@ jobs:
       - name: Install package and development dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,test-rl]"
-      - name: Run physics, dataset, and RL environment tests
+          python -m pip install -e ".[dev,test-rl,ml]"
+      - name: Run physics, dataset, RL environment, and presentation pipeline tests
         run: python -m pytest -q
