@@ -1,0 +1,51 @@
+{
+  "selection_metric": "mean autoregressive normalized RMSE on validation rays (lower is better)",
+  "validation_case_ids": [
+    11,
+    14,
+    28,
+    2
+  ],
+  "candidates": [
+    {
+      "label": "validation_reward_best",
+      "checkpoint": "outputs\\rl_runs\\class_presentation_ppo\\best\\best_model.zip",
+      "mean_validation_normalized_rmse": 0.20823364281100154,
+      "mean_validation_rmse_u": 0.0933594134676061,
+      "mean_validation_rmse_v": 0.044074057185326684,
+      "validation_case_ids": [
+        11,
+        14,
+        28,
+        2
+      ]
+    },
+    {
+      "label": "final_iteration",
+      "checkpoint": "outputs\\rl_runs\\class_presentation_ppo\\final_model.zip",
+      "mean_validation_normalized_rmse": 0.46327337393687346,
+      "mean_validation_rmse_u": 0.10655951044757782,
+      "mean_validation_rmse_v": 0.12280961782908753,
+      "validation_case_ids": [
+        11,
+        14,
+        28,
+        2
+      ]
+    }
+  ],
+  "selected": {
+    "label": "validation_reward_best",
+    "checkpoint": "outputs\\rl_runs\\class_presentation_ppo\\best\\best_model.zip",
+    "mean_validation_normalized_rmse": 0.20823364281100154,
+    "mean_validation_rmse_u": 0.0933594134676061,
+    "mean_validation_rmse_v": 0.044074057185326684,
+    "validation_case_ids": [
+      11,
+      14,
+      28,
+      2
+    ]
+  },
+  "test_split_used_for_selection": false
+}

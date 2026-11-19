@@ -1,0 +1,16 @@
+{
+  "mlp_checkpoint": "outputs\\mlp_runs\\dynamics_architecture_sweep_relu_w128_d3\\best_model.pt",
+  "ppo_checkpoint": "outputs\\presentation\\class_presentation\\selected_ppo_model.zip",
+  "dataset": "data/photon_trajectories_v2.npz",
+  "splits": "data/split_manifest_v2.json",
+  "split_evaluated": "test",
+  "test_case_ids": [
+    4,
+    27,
+    1,
+    13,
+    8
+  ],
+  "evaluation_mode": "autoregressive; each model receives its own previous prediction",
+  "reference": "DOP853 data; future reference u/v are used for scoring, not policy observations"
+}

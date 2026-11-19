@@ -1,0 +1,19 @@
+[MLP] epoch=001/300 train_mse=0.160712 val_mse=0.0336227 val_rollout=0.223436 best_epoch=1
+[MLP] epoch=010/300 train_mse=0.00014517 val_mse=6.28486e-05 val_rollout=0.0138367 best_epoch=10
+[MLP] epoch=020/300 train_mse=3.22444e-05 val_mse=3.21356e-05 val_rollout=0.0138162 best_epoch=12
+[MLP] epoch=030/300 train_mse=1.44699e-05 val_mse=2.03054e-05 val_rollout=0.0110905 best_epoch=29
+[MLP] epoch=040/300 train_mse=9.91203e-06 val_mse=1.63225e-05 val_rollout=0.0106306 best_epoch=39
+[MLP] epoch=050/300 train_mse=6.00362e-06 val_mse=1.03726e-05 val_rollout=0.010036 best_epoch=49
+[MLP] epoch=060/300 train_mse=4.88988e-06 val_mse=8.57871e-06 val_rollout=0.00909549 best_epoch=59
+[MLP] epoch=070/300 train_mse=4.32699e-06 val_mse=6.67549e-06 val_rollout=0.00801744 best_epoch=68
+[MLP] epoch=080/300 train_mse=5.76734e-06 val_mse=7.02272e-06 val_rollout=0.00649997 best_epoch=80
+[MLP] epoch=090/300 train_mse=4.05488e-06 val_mse=4.68572e-06 val_rollout=0.00626586 best_epoch=86
+[MLP] epoch=100/300 train_mse=1.30734e-05 val_mse=2.10235e-05 val_rollout=0.00993958 best_epoch=95
+[MLP] epoch=110/300 train_mse=8.22268e-06 val_mse=8.62569e-06 val_rollout=0.0122685 best_epoch=101
+[MLP] epoch=120/300 train_mse=5.18311e-06 val_mse=1.19481e-05 val_rollout=0.00575573 best_epoch=113
+[MLP] epoch=130/300 train_mse=1.32821e-05 val_mse=3.28933e-06 val_rollout=0.00405923 best_epoch=130
+[MLP] epoch=140/300 train_mse=9.53556e-06 val_mse=3.60533e-06 val_rollout=0.0118419 best_epoch=130
+[MLP] epoch=150/300 train_mse=4.65267e-06 val_mse=8.12326e-06 val_rollout=0.0100636 best_epoch=130
+[MLP] epoch=160/300 train_mse=7.41449e-06 val_mse=8.33094e-06 val_rollout=0.0165454 best_epoch=130
+[MLP] early stopping at epoch 160; best epoch=130
+[MLP] done: outputs\mlp_runs\dynamics_architecture_sweep_relu_w128_d3\best_model.pt | best_epoch=130 val_rollout=0.00405923 | elapsed=68.1s

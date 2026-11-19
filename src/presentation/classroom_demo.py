@@ -2,15 +2,47 @@
 from __future__ import annotations
 
 import argparse
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
+import torch  # noqa: F401  (kept: required by the model loaders)
 
 from presentation.common import autoregressive_rollout, calculate_metrics, extract_ray, load_dataset, read_split_ids
 from presentation.evaluate_pair import make_mlp_predictor, make_ppo_predictor
 from presentation.model import load_dynamics_mlp
+
+
+def use_interactive_backend() -> bool:
+    """Try to switch matplotlib to a GUI backend.
+
+    Must be called BEFORE any figure is created. Some modules in the project
+    may force the non-interactive "Agg" backend, which is why plt.show() used
+    to do nothing and print a FigureCanvasAgg warning.
+    """
+    for name in ("QtAgg", "TkAgg", "MacOSX"):
+        try:
+            plt.switch_backend(name)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+def open_file(path: Path) -> None:
+    """Open the saved image with the operating system's default viewer."""
+    try:
+        if sys.platform.startswith("win"):
+            os.startfile(path)  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.run(["open", str(path)], check=False)
+        else:
+            subprocess.run(["xdg-open", str(path)], check=False)
+    except Exception as exc:  # never crash the demo just because of the viewer
+        print(f"Could not open the image automatically: {exc}")
 
 
 def main() -> None:
@@ -24,6 +56,9 @@ def main() -> None:
     parser.add_argument("--show", action="store_true", help="Open the figure after saving it")
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cpu")
     args = parser.parse_args()
+
+    # Pick the backend first, before any figure exists.
+    can_show = args.show and use_interactive_backend()
 
     for path in (args.mlp, args.ppo, args.dataset, args.splits):
         if not Path(path).is_file():
@@ -110,8 +145,15 @@ def main() -> None:
         row = metrics[method]
         print(f"{method:<8} {row['rmse_u']:>14.6f} {row['rmse_v']:>16.6f}")
     print(f"\nSaved figure: {output.resolve()}")
+
     if args.show:
-        plt.show()
+        if can_show:
+            plt.show()
+        else:
+            # No GUI backend available: open the saved PNG instead of warning.
+            plt.close(fig)
+            print("No interactive matplotlib backend found; opening the saved image instead.")
+            open_file(output)
     else:
         plt.close(fig)
 

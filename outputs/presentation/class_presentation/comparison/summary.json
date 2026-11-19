@@ -1,0 +1,43 @@
+{
+  "split": "test",
+  "num_test_rays": 5,
+  "test_case_ids": [
+    4,
+    27,
+    1,
+    13,
+    8
+  ],
+  "mlp": {
+    "mean_rmse_u": 0.003937372023115471,
+    "mean_rmse_v": 0.011514758420825558,
+    "mean_mae_u": 0.0036298977944035035,
+    "mean_mae_v": 0.007338949545508263,
+    "mean_normalized_rmse": 0.04115074891052926,
+    "median_rmse_u": 0.0007312928860301723,
+    "median_rmse_v": 0.0007105935431537618
+  },
+  "ppo": {
+    "mean_rmse_u": 0.10386784398217594,
+    "mean_rmse_v": 0.06793252535402024,
+    "mean_mae_u": 0.09471773427403658,
+    "mean_mae_v": 0.057525186422259275,
+    "mean_normalized_rmse": 0.2881804055545919,
+    "median_rmse_u": 0.10617917706028984,
+    "median_rmse_v": 0.04648569969848579
+  },
+  "example_case_id": 4,
+  "mlp_architecture": {
+    "name": "dynamics_architecture_sweep_relu_w128_d3",
+    "input_dim": 4,
+    "width": 128,
+    "depth": 3,
+    "output_dim": 2,
+    "hidden_activation": "ReLU",
+    "output_activation": "Linear; clipped to [-1, 1] at rollout"
+  },
+  "mlp_checkpoint": "outputs\\mlp_runs\\dynamics_architecture_sweep_relu_w128_d3\\best_model.pt",
+  "ppo_checkpoint": "outputs\\presentation\\class_presentation\\selected_ppo_model.zip",
+  "dataset": "data/photon_trajectories_v2.npz",
+  "splits": "data/split_manifest_v2.json"
+}

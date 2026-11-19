@@ -1,0 +1,9 @@
+/mnt/c/Users/pc/Desktop/black-hole/Black-Hole/tools/research-console/target/release/deps/zbus_lockstep-e341e32f3cefdc12.d: /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/lib.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/error.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/macros.rs
+
+/mnt/c/Users/pc/Desktop/black-hole/Black-Hole/tools/research-console/target/release/deps/libzbus_lockstep-e341e32f3cefdc12.rlib: /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/lib.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/error.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/macros.rs
+
+/mnt/c/Users/pc/Desktop/black-hole/Black-Hole/tools/research-console/target/release/deps/libzbus_lockstep-e341e32f3cefdc12.rmeta: /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/lib.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/error.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/macros.rs
+
+/home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/lib.rs:
+/home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/error.rs:
+/home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus-lockstep-0.4.4/src/macros.rs:

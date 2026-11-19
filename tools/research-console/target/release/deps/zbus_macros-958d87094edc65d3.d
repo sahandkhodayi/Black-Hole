@@ -1,0 +1,10 @@
+/mnt/c/Users/pc/Desktop/black-hole/Black-Hole/tools/research-console/target/release/deps/zbus_macros-958d87094edc65d3.d: /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/lib.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/error.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/iface.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/proxy.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/utils.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/../README.md
+
+/mnt/c/Users/pc/Desktop/black-hole/Black-Hole/tools/research-console/target/release/deps/libzbus_macros-958d87094edc65d3.so: /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/lib.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/error.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/iface.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/proxy.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/utils.rs /home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/../README.md
+
+/home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/lib.rs:
+/home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/error.rs:
+/home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/iface.rs:
+/home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/proxy.rs:
+/home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/utils.rs:
+/home/sahand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zbus_macros-4.4.0/src/../README.md:
