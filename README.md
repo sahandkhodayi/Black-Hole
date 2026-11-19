@@ -51,3 +51,18 @@ The RL environment, PPO training script, evaluation script, and experiment compa
 ## Live RL research dashboard
 
 Watch PPO training in real time, inspect reward/loss/validation-error curves, compare a live validation ray against DOP853, and stop safely at any time: [Live training dashboard guide](docs/LIVE_TRAINING_DASHBOARD.md).
+
+## Parallel MLP + PPO classroom experiment
+
+The presentation pipeline trains the selected supervised dynamics MLP (\`dynamics_architecture_sweep_relu_w128_d3\`) alongside the existing teacher-guided PPO trajectory model. It evaluates both autoregressively on the same held-out photon rays and writes per-ray metrics, comparison plots, and a plain-language analysis. The classroom demo loads saved checkpoints and does not train live.
+
+Install and run from PowerShell:
+
+~~~powershell
+python -m pip install -e ".[dev,rl,ml]"
+python -m presentation.run_parallel --run-name class_presentation --rl-seconds 600 --mlp-epochs 300 --seed 42
+python -m presentation.classroom_demo --show
+~~~
+
+See [presentation pipeline instructions](PRESENTATION_PIPELINE_README.md) and [the detailed workflow](docs/PRESENTATION_CODE_WORKFLOW.md). The current PPO environment predicts the next \`(u, v)\` state with teacher-guided reward; it does not control the numerical solver's step size. The MLP is supervised rather than a PINN.
+
