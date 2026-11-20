@@ -31,6 +31,10 @@ def main():
                         help="Open the live dashboard; Ctrl+C or the Stop button saves and exits.")
     parser.add_argument("--live-interval-seconds", type=float, default=60.0,
                         help="Re-evaluate validation rays and refresh graphs every N seconds.")
+    parser.add_argument("--web-monitor", action="store_true",
+                        help="Write browser-readable training snapshots without opening Matplotlib.")
+    parser.add_argument("--control-file", default=None,
+                        help="Internal stop-request file used by the local browser dashboard.")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
@@ -65,7 +69,11 @@ def main():
     model.save(run_dir / "initial_model")
     dashboard = LiveTrainingDashboard(
         run_dir, eval_env, val_ids,
-        interval_seconds=args.live_interval_seconds, enabled=args.live)
+        interval_seconds=args.live_interval_seconds,
+        enabled=args.live,
+        web_monitor=args.web_monitor,
+        control_file=args.control_file,
+    )
     callbacks = [
         WallClockLimitCallback(args.seconds),
         CheckpointCallback(save_freq=1000, save_path=str(run_dir / "checkpoints"),
@@ -100,6 +108,7 @@ def main():
         "target_kl": 0.03,
         "checkpoint_selection": "Use best/best_model.zip selected by validation reward; final_model.zip is the last iterate.",
         "live_dashboard": args.live,
+        "web_monitor": args.web_monitor,
         "live_report_interval_seconds": args.live_interval_seconds,
     }
     (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
