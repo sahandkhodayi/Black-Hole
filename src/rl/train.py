@@ -23,6 +23,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", default="data/photon_trajectories_v2.npz")
     parser.add_argument("--splits", default="data/split_manifest_v2.json")
+    parser.add_argument("--output-root", default="outputs",
+                        help="Root folder for saved training runs.")
     parser.add_argument("--seconds", type=float, default=60)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--run-name", default=None)
@@ -41,7 +43,7 @@ def main():
     if args.live_interval_seconds <= 0:
         parser.error("--live-interval-seconds must be positive")
     name = args.run_name or f"ppo_{int(args.seconds)}s_seed{args.seed}"
-    run_dir = Path("outputs/rl_runs") / name
+    run_dir = Path(args.output_root).expanduser().resolve() / "rl_runs" / name
     run_dir.mkdir(parents=True, exist_ok=True)
     train_ids, val_ids = read_ids(args.splits, "train"), read_ids(args.splits, "validation")
     train_env = Monitor(PhotonTrajectoryEnv(args.dataset, train_ids, randomize_cases=True))
