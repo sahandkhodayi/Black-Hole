@@ -1,13 +1,13 @@
 # Reading your Black Hole Lab results
 
-This page is for looking at experiment results. **It does not train a model.** Start it after you have run an MLP, PPO, or the classroom comparison.
+Use this local website to start a PPO training run, watch its progress, stop and save it, and inspect previous MLP, PPO, and classroom-comparison results. Training runs in a separate backend process; the browser does not run the model itself.
 
 ## Open it
 
 From the Black Hole Lab project folder, use the same Python environment you use for the project:
 
 ```powershell
-python -m pip install -e .
+python -m pip install -e ".[rl]"
 python -m bh_analytics.dashboard --root outputs
 ```
 
@@ -20,6 +20,27 @@ python -m bh_analytics.dashboard --root outputs --no-browser
 ```
 
 Then open `http://127.0.0.1:8765` in your Windows browser.
+
+## Start training from the website
+
+At the top of the page, use **Train a PPO agent**:
+
+1. Choose a run length (1, 5, 10, or 30 minutes) and a random seed.
+2. Press **Start training**. The backend launches the existing PPO training script using the same Python environment as the dashboard.
+3. The page checks the backend once every **60 seconds**. It does not poll every second. The reward, optimization-loss, and validation-error graphs refresh when a new snapshot is ready.
+4. Press **Stop & save** to request a safe stop. The trainer finishes its current step, saves the final model, and keeps the best validation checkpoint.
+
+The first graph can take a little time to appear because the trainer waits for a PPO rollout boundary before recording its first validation snapshot. Later snapshots are written at approximately one-minute intervals. Validation work also happens only at those intervals, so it does not run on every environment step.
+
+The browser controls currently launch **PPO training**. The existing MLP training and paired MLP-vs-PPO presentation commands remain available through their documented command-line workflow. Only one browser-launched training run can be active at a time.
+
+Training controls are enabled only when the dashboard is bound to localhost. This is intentional: the local training API is not an authenticated remote job server.
+
+The page uses these local API routes:
+
+- `POST /api/training/start` starts a PPO run.
+- `GET /api/training/status` returns the latest saved history snapshot.
+- `POST /api/training/stop` requests a safe save-and-stop.
 
 ## What you will see
 
