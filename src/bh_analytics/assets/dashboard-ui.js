@@ -297,10 +297,12 @@ function animatePhysics() {
 
 $("closest-approach").addEventListener("input", (event) => {
   $("r0-value").textContent = Number(event.target.value).toFixed(2);
+  if (physicsAnimation !== null) stopPhysicsAnimation();
   physicsDirty = true;
-  $("solver-state").textContent = "New starting condition · trace to update";
+  $("solver-state").textContent = "New starting condition · solving when you release";
   $("play-ray").disabled = true;
 });
+$("closest-approach").addEventListener("change", tracePhysicsRay);
 $("trace-ray").addEventListener("click", tracePhysicsRay);
 $("play-ray").addEventListener("click", () => {
   if (!physicsRay || physicsDirty) return;
