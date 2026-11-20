@@ -50,7 +50,7 @@ The RL environment, PPO training script, evaluation script, and experiment compa
 
 ## Live RL research dashboard
 
-Watch PPO training in real time, inspect reward/loss/validation-error curves, compare a live validation ray against DOP853, and stop safely at any time: [Live training dashboard guide](docs/LIVE_TRAINING_DASHBOARD.md).
+Start a PPO run from the local browser dashboard, watch reward/loss/validation-error graphs refresh once per minute, and stop safely while saving the model. The optional Matplotlib research console is also available from the CLI: [Live training dashboard guide](docs/LIVE_TRAINING_DASHBOARD.md).
 
 ## Parallel MLP + PPO classroom experiment
 
@@ -73,8 +73,8 @@ See [presentation pipeline instructions](PRESENTATION_PIPELINE_README.md) and [t
 Open the local results page after training or evaluating a model:
 
 ~~~powershell
-python -m pip install -e .
+uv pip install -e ".[rl]"
 python -m bh_analytics.dashboard --root outputs
 ~~~
 
-It opens your saved MLP, PPO, and classroom comparison results in your browser. It explains which model followed the test photon paths more accurately, shows the main numbers and plots, and can save a shareable HTML report. You do **not** need to prepare CSV files by hand. See [Reading your experiment results](docs/ANALYTICS_DASHBOARD.md).
+It opens your saved MLP, PPO, and classroom comparison results in your browser. You can also start a PPO training run, see reward/loss/validation graphs refresh once per minute, and stop safely to save the model. The page explains saved results and can create a shareable HTML report. You do **not** need to prepare CSV files by hand. MLP and paired MLP-vs-PPO training remain available through the presentation commands above. See [Reading your experiment results](docs/ANALYTICS_DASHBOARD.md).
