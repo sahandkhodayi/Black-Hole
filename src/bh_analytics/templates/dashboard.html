@@ -35,6 +35,35 @@
         </div>
         <button id="report" class="primary-button" disabled>Save a shareable report <span aria-hidden="true">↗</span></button>
       </header>
+      <section class="training-launcher" aria-labelledby="training-title">
+        <div class="training-heading">
+          <div class="training-copy">
+            <p class="eyebrow">LIVE TRAINING</p>
+            <h2 id="training-title">Train a PPO agent</h2>
+            <p>Start a training run here. The model trains in the backend, while this page refreshes its graphs once every 60 seconds.</p>
+          </div>
+          <div class="training-controls">
+            <label class="training-field">Training time
+              <select id="training-minutes">
+                <option value="1">1 minute</option>
+                <option value="5" selected>5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="30">30 minutes</option>
+              </select>
+            </label>
+            <label class="training-field">Random seed
+              <input id="training-seed" type="number" min="0" max="2147483647" value="42">
+            </label>
+            <button id="start-training" class="primary-button" type="button">Start training</button>
+            <button id="stop-training" class="danger-button" type="button" hidden>Stop &amp; save</button>
+          </div>
+        </div>
+        <div class="training-status-row">
+          <span id="training-status-pill" class="training-status-pill">READY</span>
+          <span id="training-status-message">No training run is active. Your saved results are below.</span>
+        </div>
+        <div id="training-live" aria-live="polite"></div>
+      </section>
       <div id="content" aria-live="polite">
         <div class="loading-card">Loading your saved results…</div>
       </div>

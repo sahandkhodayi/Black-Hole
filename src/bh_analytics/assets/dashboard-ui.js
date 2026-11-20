@@ -198,7 +198,10 @@ function drawTrainingChart(rows, xKey, series) {
       .filter(([xValue, yValue]) => isNumber(xValue) && isNumber(yValue));
     if (!points.length) return "";
     const coords = points.map(([px, py]) => `${x(px).toFixed(1)},${y(py).toFixed(1)}`).join(" ");
-    return `<polyline points="${coords}" fill="none" stroke="${colors[index % colors.length]}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+    const dots = points.length <= 80
+      ? points.map(([px, py]) => `<circle cx="${x(px).toFixed(1)}" cy="${y(py).toFixed(1)}" r="3" fill="${colors[index % colors.length]}"/>`).join("")
+      : "";
+    return `<polyline points="${coords}" fill="none" stroke="${colors[index % colors.length]}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>${dots}`;
   }).join("");
   const grid = [0, 1, 2, 3, 4].map((i) => {
     const gy = top + i * (height - top - bottom) / 4;
@@ -247,16 +250,30 @@ function renderRl(data) {
     metricCard("Average change error", summary.mean_rmse_v, "Lower is better"),
     metricCard("Training steps", data.config?.timesteps_actual, "Steps taken while learning")
   ].join("");
-  const chart = drawTrainingChart(data.history || [], "timesteps", [
-    { key: "reward_mean", label: "Average reward" },
-    { key: "episode_reward", label: "Episode reward" }
-  ]);
+  const history = data.history || [];
+  const rewardChart = history.some((row) => isNumber(row.reward_mean) || isNumber(row.episode_reward))
+    ? `<div class="training-chart-card"><h3>Reward over training</h3>${drawTrainingChart(history, "timesteps", [
+        { key: "reward_mean", label: "Average reward" },
+        { key: "episode_reward", label: "Latest episode" }
+      ])}</div>` : "";
+  const lossChart = history.some((row) => isNumber(row.policy_loss) || isNumber(row.value_loss))
+    ? `<div class="training-chart-card"><h3>Model optimization</h3>${drawTrainingChart(history, "timesteps", [
+        { key: "policy_loss", label: "Policy loss" },
+        { key: "value_loss", label: "Value loss" }
+      ])}</div>` : "";
+  const validationChart = history.some((row) => isNumber(row.validation_rmse_u) || isNumber(row.validation_rmse_v))
+    ? `<div class="training-chart-card"><h3>Validation prediction error</h3>${drawTrainingChart(history, "timesteps", [
+        { key: "validation_rmse_u", label: "Distance (u)" },
+        { key: "validation_rmse_v", label: "Change (v)" }
+      ])}</div>` : "";
+  const charts = rewardChart + lossChart + validationChart;
   $("content").innerHTML = `
     <section class="result-intro"><div><p class="eyebrow">PPO · REINFORCEMENT LEARNING</p><h2>${esc(data.name.replace(/[_-]/g, " "))}</h2>
       <p class="lead">This agent learned by trying to predict the next point on a photon path and receiving feedback on its predictions.</p></div></section>
     <section class="metric-grid">${cards}</section>
-    <section class="section result-panel"><p class="eyebrow">LEARNING PROGRESS</p><h2>How its reward changed</h2>${chart}
-      <p class="table-note">Reward is the feedback the agent receives while learning. A rising reward usually means it is improving at the training task.</p>
+    <section class="section result-panel"><p class="eyebrow">LEARNING PROGRESS</p><h2>How training changed</h2>
+      <div class="training-chart-grid">${charts || '<div class="chart-empty">No training curve was saved for this run.</div>'}</div>
+      <p class="table-note">Reward is feedback from the training environment. Validation errors compare complete validation paths against DOP853; lower errors are better. These curves are training diagnostics, not final held-out test scores.</p>
     </section>
     <details class="details-panel"><summary>Show the result for each test path</summary>${perRayTable(data.metrics)}</details>
     ${imageGallery(data.artifacts)}
@@ -295,4 +312,151 @@ $("report").addEventListener("click", async () => {
   }
 });
 
-refresh();
+
+function trainingIsActive(status) {
+  return ["starting", "running", "stopping"].includes(status);
+}
+
+function scheduleTrainingPoll() {
+  if (trainingPollTimer) clearTimeout(trainingPollTimer);
+  trainingPollTimer = setTimeout(pollTrainingStatus, TRAINING_POLL_MS);
+}
+
+function renderTrainingSnapshot(snapshot) {
+  const status = snapshot?.status || "idle";
+  const active = trainingIsActive(status);
+  const pill = $("training-status-pill");
+  const startButton = $("start-training");
+  const stopButton = $("stop-training");
+  const message = $("training-status-message");
+  pill.textContent = status.toUpperCase();
+  pill.className = "training-status-pill" + (status === "running" || status === "completed"
+    ? " status-" + status : status === "stopping" ? " status-stopping"
+    : status === "failed" ? " status-failed" : "");
+  startButton.disabled = active;
+  stopButton.hidden = !active;
+  stopButton.disabled = status === "stopping";
+
+  if (status === "idle" || !snapshot?.run_name) {
+    message.textContent = "No training run is active. Your saved results are below.";
+    $("training-live").innerHTML = "";
+    return;
+  }
+  const names = {
+    starting: "Starting the training process",
+    running: "Training is running. New graph snapshots arrive once every 60 seconds.",
+    stopping: "Stop requested. The trainer will finish safely and save its current model.",
+    completed: "Training finished. The model and training history have been saved.",
+    failed: "Training stopped because the backend process reported an error."
+  };
+  message.textContent = (names[status] || "Training status") + " · " + snapshot.run_name;
+
+  const history = snapshot.history || [];
+  const latest = snapshot.latest || history[history.length - 1] || {};
+  const cards = [
+    metricCard("Elapsed time", snapshot.elapsed_seconds, "Seconds since start"),
+    metricCard("Training steps", latest.timesteps),
+    metricCard("Average reward", latest.reward_mean, "Recent episode average"),
+    metricCard("Validation error (u)", latest.validation_rmse_u, "Lower is better")
+  ].join("");
+  const chart = (title, rows, series) => {
+    const present = rows.some((row) => series.some((item) => isNumber(row[item.key])));
+    return present
+      ? `<div class="training-chart-card"><h3>${esc(title)}</h3>${drawTrainingChart(rows, "timesteps", series)}</div>`
+      : "";
+  };
+  const charts = [
+    chart("Reward", history, [
+      { key: "reward_mean", label: "Average reward" },
+      { key: "episode_reward", label: "Latest episode" }
+    ]),
+    chart("Optimization losses", history, [
+      { key: "policy_loss", label: "Policy loss" },
+      { key: "value_loss", label: "Value loss" }
+    ]),
+    chart("Validation error", history, [
+      { key: "validation_rmse_u", label: "Distance (u)" },
+      { key: "validation_rmse_v", label: "Change (v)" }
+    ])
+  ].join("");
+  let detail = "";
+  if (!history.length) {
+    detail = '<div class="training-empty">The trainer is starting. The first validation snapshot appears after its first PPO rollout; after that, the browser updates every minute.</div>';
+  } else if (!charts) {
+    detail = '<div class="training-empty">Training is progressing, but there are not enough completed episodes or validation samples to draw the graphs yet.</div>';
+  } else {
+    detail = `<div class="training-chart-grid">${charts}</div><p class="training-updated">Last refreshed: ${esc(new Date().toLocaleTimeString())} · Next refresh in about 1 minute</p>`;
+  }
+  if (status === "failed" && snapshot.log_tail?.length) {
+    detail += `<div class="training-error">${esc(snapshot.log_tail.join("\\n"))}</div>`;
+  }
+  if (status === "completed") {
+    detail += '<div class="training-empty">The final checkpoint is saved. This run is now available in the experiment list on the left.</div>';
+  }
+  $("training-live").innerHTML = `<div class="training-live-cards">${cards}</div>${detail}`;
+}
+
+async function pollTrainingStatus() {
+  if (trainingPollTimer) clearTimeout(trainingPollTimer);
+  trainingPollTimer = null;
+  try {
+    const wasActive = trainingSnapshot?.active === true;
+    const snapshot = await api("/api/training/status");
+    trainingSnapshot = snapshot;
+    renderTrainingSnapshot(snapshot);
+    if (trainingIsActive(snapshot.status)) {
+      scheduleTrainingPoll();
+    } else if (wasActive && snapshot.experiment_id) {
+      await refresh();
+      await selectExperiment(snapshot.experiment_id);
+    }
+  } catch (error) {
+    $("training-status-pill").textContent = "ERROR";
+    $("training-status-pill").className = "training-status-pill status-failed";
+    $("training-status-message").textContent = error.message;
+    $("training-live").innerHTML = `<div class="training-error">${esc(error.message)}</div>`;
+  }
+}
+
+$("start-training").addEventListener("click", async () => {
+  const button = $("start-training");
+  button.disabled = true;
+  $("training-status-message").textContent = "Preparing the training process…";
+  $("training-live").innerHTML = "";
+  try {
+    const snapshot = await api("/api/training/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        minutes: Number($("training-minutes").value),
+        seed: Number($("training-seed").value)
+      })
+    });
+    trainingSnapshot = snapshot;
+    renderTrainingSnapshot(snapshot);
+    scheduleTrainingPoll();
+  } catch (error) {
+    $("training-status-pill").textContent = "ERROR";
+    $("training-status-pill").className = "training-status-pill status-failed";
+    $("training-status-message").textContent = error.message;
+    $("training-live").innerHTML = `<div class="training-error">${esc(error.message)}</div>`;
+    button.disabled = false;
+  }
+});
+
+$("stop-training").addEventListener("click", async () => {
+  const button = $("stop-training");
+  button.disabled = true;
+  $("training-status-message").textContent = "Requesting a safe stop…";
+  try {
+    const snapshot = await api("/api/training/stop", { method: "POST" });
+    trainingSnapshot = snapshot;
+    renderTrainingSnapshot(snapshot);
+    if (snapshot.active) scheduleTrainingPoll();
+  } catch (error) {
+    $("training-status-message").textContent = error.message;
+    button.disabled = false;
+  }
+});
+
+refresh().then(pollTrainingStatus);

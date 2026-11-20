@@ -15,7 +15,7 @@ from rl.reporting import report_is_due
 
 class LiveTrainingDashboard(BaseCallback):
     def __init__(self, run_dir, eval_env, validation_ids, *, interval_seconds=60,
-                 window=100, enabled=True, verbose=0):
+                 window=100, enabled=True, web_monitor=False, control_file=None, verbose=0):
         super().__init__(verbose)
         self.run_dir = Path(run_dir)
         self.eval_env = eval_env
@@ -31,7 +31,9 @@ class LiveTrainingDashboard(BaseCallback):
         self.last_report_time = None
         self.stop_requested = False
         self.paused = False
-        self.enabled = bool(enabled)
+        self.enabled = bool(enabled)  # Matplotlib window only
+        self.web_monitor = bool(web_monitor)  # Browser API snapshots without a desktop window
+        self.control_file = Path(control_file) if control_file else None
         self.figure = None
         self.axes = None
         self.pause_button = None
@@ -41,6 +43,7 @@ class LiveTrainingDashboard(BaseCallback):
         self.orbit_lines = None
         self.orbit_marker = None
         self.latest_ray = None
+        self._last_history_timesteps = None
 
     def _on_training_start(self):
         self.started = time.monotonic()
@@ -87,7 +90,7 @@ class LiveTrainingDashboard(BaseCallback):
         if not self.history_path.exists():
             with self.history_path.open("w", newline="", encoding="utf-8") as handle:
                 csv.writer(handle).writerow([
-                    "timesteps", "elapsed_seconds", "episode_reward",
+                    "timesteps", "elapsed_seconds", "episode_reward", "reward_mean",
                     "policy_loss", "value_loss", "validation_rmse_u",
                     "validation_rmse_v", "action_0_mean", "action_1_mean"
                 ])
@@ -280,12 +283,14 @@ class LiveTrainingDashboard(BaseCallback):
                        val_u=None, val_v=None):
         actions = np.asarray(self.action_samples) if self.action_samples else np.empty((0, 2))
         means = actions.mean(axis=0) if len(actions) else [np.nan, np.nan]
+        reward_mean = float(np.mean(self.episode_rewards)) if self.episode_rewards else np.nan
         with self.history_path.open("a", newline="", encoding="utf-8") as handle:
             csv.writer(handle).writerow([
                 self.num_timesteps, time.monotonic() - self.started,
-                episode_reward, policy_loss, value_loss, val_u, val_v,
+                episode_reward, reward_mean, policy_loss, value_loss, val_u, val_v,
                 means[0], means[1]
             ])
+        self._last_history_timesteps = self.num_timesteps
 
     def _on_step(self):
         for info in self.locals.get("infos", []):
@@ -309,6 +314,9 @@ class LiveTrainingDashboard(BaseCallback):
             import matplotlib.pyplot as plt
             self.figure.canvas.flush_events()
             plt.pause(.1)
+        if (self.control_file is not None and self.num_timesteps % 128 == 0
+                and self.control_file.is_file()):
+            self.stop_requested = True
         if self.stop_requested:
             return False
         return True
@@ -327,7 +335,7 @@ class LiveTrainingDashboard(BaseCallback):
             self.value_losses.append(float(value))
 
         now = time.monotonic()
-        report_due = self.enabled and self._report_due(now)
+        report_due = (self.enabled or self.web_monitor) and self._report_due(now)
         val_u = val_v = None
         if report_due:
             val_u, val_v, self.latest_ray = self._evaluate_validation()
@@ -337,9 +345,12 @@ class LiveTrainingDashboard(BaseCallback):
             self.last_report_time = now
 
         latest_reward = self.reward_values[-1] if self.reward_values else None
-        self._write_history(latest_reward, policy, value, val_u, val_v)
+        # Browser mode writes a single compact snapshot per reporting interval.
+        # The normal CLI mode keeps its existing per-rollout history behavior.
+        if not self.web_monitor or report_due:
+            self._write_history(latest_reward, policy, value, val_u, val_v)
         # Validation and full graph redraw happen at most once per time interval.
-        if report_due:
+        if self.enabled and report_due:
             self._refresh()
 
     def save_final_snapshot(self):
@@ -354,4 +365,16 @@ class LiveTrainingDashboard(BaseCallback):
         self.figure = None
 
     def _on_training_end(self):
+        if self.web_monitor and self._last_history_timesteps != self.num_timesteps:
+            values = getattr(self.model.logger, "name_to_value", {})
+            latest_reward = self.reward_values[-1] if self.reward_values else None
+            val_u = self.rmse_u[-1] if self.rmse_u else None
+            val_v = self.rmse_v[-1] if self.rmse_v else None
+            self._write_history(
+                latest_reward,
+                values.get("train/policy_gradient_loss"),
+                values.get("train/value_loss"),
+                val_u,
+                val_v,
+            )
         self.save_final_snapshot()
