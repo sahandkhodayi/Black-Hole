@@ -172,7 +172,6 @@ class TrainingManager:
         config: dict[str, Any] = {}
         if config_path.is_file():
             try:
-                import json
                 value = json.loads(config_path.read_text(encoding="utf-8"))
                 if isinstance(value, dict):
                     config = value
