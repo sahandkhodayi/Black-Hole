@@ -69,6 +69,8 @@ def test_start_stop_and_status_use_a_safe_control_file(tmp_path, monkeypatch):
     assert started["status"] == "starting"
     assert started["active"] is True
     assert "--web-monitor" in launched[0].command
+    assert "--output-root" in launched[0].command
+    assert str(project / "outputs") in launched[0].command
     assert "--live-interval-seconds" in launched[0].command
     assert "60" in launched[0].command
 
