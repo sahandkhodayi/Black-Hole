@@ -1,6 +1,9 @@
 const $ = (id) => document.getElementById(id);
 let experiments = [];
 let selected = null;
+let trainingSnapshot = null;
+let trainingPollTimer = null;
+const TRAINING_POLL_MS = 60_000;
 
 const esc = (value) => String(value ?? "—").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
