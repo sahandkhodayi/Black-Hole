@@ -95,6 +95,7 @@ class TrainingManager:
                 "--seconds", str(seconds),
                 "--seed", str(seed),
                 "--run-name", self._run_name,
+                "--output-root", str(self.outputs_root),
                 "--live-interval-seconds", str(self.poll_interval_seconds),
                 "--web-monitor",
                 "--control-file", str(self._stop_file),
