@@ -116,7 +116,9 @@ def test_dashboard_http_api_assets_reports_and_bad_paths(outputs):
     try:
         with urlopen(base + "/") as response:
             page = response.read()
-            assert b"What did the experiment find?" in page
+            assert b"See how gravity bends" in page
+            assert b"Trace a photon" in page
+            assert b"dÂ²u/dÏÂ² + u" in page
             assert b"Reproducibility configuration" not in page
             assert response.headers["Content-Security-Policy"]
 
@@ -130,8 +132,9 @@ def test_dashboard_http_api_assets_reports_and_bad_paths(outputs):
 
         with urlopen(base + "/assets/dashboard-ui.js") as response:
             script = response.read()
-            assert b"renderComparison" in script
-            assert b"No saved experiment results found" in script
+            assert b"renderSavedExperiment" in script
+            assert b"drawOrbitCanvas" in script
+            assert b"renderTrainingSnapshot" in script
             assert b"Reproducibility configuration" not in script
 
         request = Request(
