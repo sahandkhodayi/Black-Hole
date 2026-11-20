@@ -48,9 +48,9 @@ The target is sequential generation of escaping photon trajectories. The referen
 The RL environment, PPO training script, evaluation script, and experiment comparison utility are included on the default branch. They are a teacher-guided tracking baseline, not a claim of autonomous physics discovery.
 
 
-## Live RL research dashboard
+## Interactive classroom website
 
-Start a PPO run from the local browser dashboard, watch reward/loss/validation-error graphs refresh once per minute, and stop safely while saving the model. The optional Matplotlib research console is also available from the CLI: [Live training dashboard guide](docs/LIVE_TRAINING_DASHBOARD.md).
+Explore a DOP853 photon orbit by changing its closest approach, animate the photon, and see the synchronized inverse-radius and derivative plots. The page shows how the second-order orbit equation becomes a first-order system, then lets you compare the PPO prediction with the numerical reference. PPO training snapshots refresh once per minute. See [the visual classroom guide](docs/ANALYTICS_DASHBOARD.md). The optional Matplotlib research console remains available from the CLI: [Live training dashboard guide](docs/LIVE_TRAINING_DASHBOARD.md).
 
 ## Parallel MLP + PPO classroom experiment
 
@@ -77,4 +77,4 @@ uv pip install -e ".[rl]"
 python -m bh_analytics.dashboard --root outputs
 ~~~
 
-It opens your saved MLP, PPO, and classroom comparison results in your browser. You can also start a PPO training run, see reward/loss/validation graphs refresh once per minute, and stop safely to save the model. The page explains saved results and can create a shareable HTML report. You do **not** need to prepare CSV files by hand. MLP and paired MLP-vs-PPO training remain available through the presentation commands above. See [Reading your experiment results](docs/ANALYTICS_DASHBOARD.md).
+It opens the interactive classroom website. Trace photon paths from the differential equation, animate the result, watch the (u(φ)) and (v(φ)) state plots move together, and compare PPO's live validation path with DOP853. Start/stop PPO from the browser and inspect saved MLP, PPO, and paired comparison results below. No CSV files need to be prepared by hand. See [the visual classroom guide](docs/ANALYTICS_DASHBOARD.md).
