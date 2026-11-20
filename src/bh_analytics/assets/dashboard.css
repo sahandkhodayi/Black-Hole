@@ -124,6 +124,7 @@ input[type="range"] { width: 100%; accent-color: var(--orange); cursor: pointer;
 .equation-step > span { display: block; color: var(--cyan); font-size: 9px; font-weight: 850; letter-spacing: .12em; margin-bottom: 6px; }
 .equation-step strong { display: block; font-size: 11px; margin-bottom: 8px; }
 .equation-step div { color: var(--text); font-size: 14px; margin: 2px 0; }
+.equation-step div strong { display: inline; color: var(--orange); font-size: inherit; margin: 0; }
 .equation-step small { display: block; color: var(--muted); font-size: 9px; }
 .state-plots { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
 .state-plot-card { padding: 14px 15px 11px; min-width: 0; }
