@@ -259,6 +259,7 @@ async function tracePhysicsRay() {
     physicsProgress = 1;
     physicsDirty = false;
     $("r0-value").textContent = radius.toFixed(2);
+    $("u0-value").textContent = (1 / radius).toFixed(4);
     $("play-ray").disabled = false;
     $("play-ray").textContent = "▶ Animate photon";
     updatePhysicsReadouts();
@@ -296,7 +297,9 @@ function animatePhysics() {
 }
 
 $("closest-approach").addEventListener("input", (event) => {
-  $("r0-value").textContent = Number(event.target.value).toFixed(2);
+  const radius = Number(event.target.value);
+  $("r0-value").textContent = radius.toFixed(2);
+  $("u0-value").textContent = (1 / radius).toFixed(4);
   if (physicsAnimation !== null) stopPhysicsAnimation();
   physicsDirty = true;
   $("solver-state").textContent = "New starting condition · solving when you release";
