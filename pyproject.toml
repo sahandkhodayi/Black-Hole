@@ -27,3 +27,11 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra"
+
+
+[project.scripts]
+blackhole-analytics = "bh_analytics.dashboard:main"
+blackhole-report = "bh_analytics.report:main"
+
+[tool.setuptools.package-data]
+bh_analytics = ["templates/*.html", "assets/*.css", "assets/*.js"]
