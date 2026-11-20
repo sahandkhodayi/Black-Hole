@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -171,7 +172,6 @@ class TrainingManager:
         config: dict[str, Any] = {}
         if config_path.is_file():
             try:
-                import json
                 value = json.loads(config_path.read_text(encoding="utf-8"))
                 if isinstance(value, dict):
                     config = value
@@ -179,6 +179,16 @@ class TrainingManager:
                 pass
 
         elapsed = time.monotonic() - self._started_at if self._started_at is not None else 0.0
+        visual = None
+        visual_path = self._run_dir / "live_visual.json"
+        if visual_path.is_file():
+            try:
+                loaded_visual = json.loads(visual_path.read_text(encoding="utf-8"))
+                if isinstance(loaded_visual, dict):
+                    visual = loaded_visual
+            except (OSError, UnicodeError, ValueError):
+                visual = None
+
         result: dict[str, Any] = {
             "status": state,
             "active": return_code is None,
@@ -192,6 +202,7 @@ class TrainingManager:
             "poll_interval_seconds": self.poll_interval_seconds,
             "history": history,
             "latest": history[-1] if history else None,
+            "visual": visual,
         }
         if state == "failed":
             log_path = self._run_dir / "training.log"

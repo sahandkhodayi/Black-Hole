@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 
 import pytest
 
@@ -93,9 +94,21 @@ def test_start_stop_and_status_use_a_safe_control_file(tmp_path, monkeypatch):
     assert stopping["status"] == "stopping"
     assert (run_dir / "STOP").is_file()
 
+    visual_payload = {
+        "case_id": 22,
+        "closest_approach": 5.0,
+        "phi": [-1.0, 0.0, 1.0],
+        "reference_u": [0.1, 0.2, 0.1],
+        "predicted_u": [0.12, 0.2, 0.13],
+    }
+    (run_dir / "live_visual.json").write_text(
+        json.dumps(visual_payload), encoding="utf-8"
+    )
+
     running_snapshot = manager.status()
     assert running_snapshot["latest"]["timesteps"] == 512
     assert running_snapshot["latest"]["reward_mean"] == 0.7
+    assert running_snapshot["visual"] == visual_payload
 
     launched[0].returncode = 0
     finished = manager.status()

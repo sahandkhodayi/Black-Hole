@@ -5,6 +5,8 @@ is the reference; PPO is the current policy's autoregressive rollout.
 """
 from collections import deque
 import csv
+import json
+import os
 import time
 from pathlib import Path
 
@@ -142,6 +144,54 @@ class LiveTrainingDashboard(BaseCallback):
         return float(np.mean(errors_u)), float(np.mean(errors_v)), first_ray
 
     @staticmethod
+    def _write_web_visual_snapshot(self, val_u, val_v):
+        """Persist the real validation rollout for the browser orbit comparison."""
+        if not self.web_monitor or self.latest_ray is None:
+            return
+        phi, ref_u, pred_u, ref_v, pred_v, r0, case_id = self.latest_ray
+        arrays = [
+            np.asarray(phi[:len(ref_u)], dtype=float),
+            np.asarray(ref_u, dtype=float),
+            np.asarray(pred_u, dtype=float),
+            np.asarray(ref_v, dtype=float),
+            np.asarray(pred_v, dtype=float),
+        ]
+        if not np.isfinite(r0) or not np.isfinite(val_u) or not np.isfinite(val_v):
+            return
+        if not all(np.all(np.isfinite(values)) for values in arrays):
+            # An unstable policy can emit non-finite actions. Keep the last
+            # valid browser picture rather than letting a plot update crash training.
+            return
+        payload = {
+            "case_id": int(case_id),
+            "closest_approach": float(r0),
+            "timesteps": int(self.num_timesteps),
+            "validation_rmse_u": float(val_u),
+            "validation_rmse_v": float(val_v),
+            "phi": arrays[0].tolist(),
+            "reference_u": arrays[1].tolist(),
+            "predicted_u": arrays[2].tolist(),
+            "reference_v": arrays[3].tolist(),
+            "predicted_v": arrays[4].tolist(),
+        }
+        target = self.run_dir / "live_visual.json"
+        temporary = target.with_suffix(".json.tmp")
+        try:
+            temporary.write_text(
+                json.dumps(payload, allow_nan=False, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            os.replace(temporary, target)
+        except (OSError, ValueError):
+            # The visual monitor is optional; do not interrupt the PPO update
+            # if the filesystem or a malformed snapshot prevents rendering.
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+            if self.verbose:
+                print("[web monitor] Could not save a valid trajectory snapshot.", flush=True)
+
     def _orbit_xy(phi, u):
         radius = np.divide(1.0, np.asarray(u, dtype=float),
                            out=np.full_like(np.asarray(u, dtype=float), 15.0),
@@ -343,6 +393,7 @@ class LiveTrainingDashboard(BaseCallback):
             self.rmse_u.append(val_u)
             self.rmse_v.append(val_v)
             self.last_report_time = now
+            self._write_web_visual_snapshot(val_u, val_v)
 
         latest_reward = self.reward_values[-1] if self.reward_values else None
         # Browser mode writes a single compact snapshot per reporting interval.

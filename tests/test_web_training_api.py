@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import json
 from http.server import ThreadingHTTPServer
 from threading import Thread
@@ -50,6 +51,39 @@ def _json_post(url, payload=None, *, origin=None):
     with urlopen(request, timeout=5) as response:
         return response.status, json.loads(response.read())
 
+
+
+def test_physics_ray_api_returns_actual_solver_trajectory(monkeypatch, tmp_path):
+    server, thread, _manager, base = _serve(monkeypatch, tmp_path)
+    try:
+        status, body = _json_get(base + "/api/physics/ray?r0=5.0")
+        assert status == 200
+        assert body["escaped"] is True
+        assert body["closest_approach"] == 5.0
+        assert body["samples"] > 100
+        assert len(body["x"]) == len(body["y"]) == body["samples"]
+        middle = min(range(len(body["phi"])), key=lambda i: abs(body["phi"][i]))
+        assert body["u"][middle] == pytest.approx(0.2, abs=1e-8)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_physics_ray_api_rejects_captured_or_out_of_range_paths(monkeypatch, tmp_path):
+    server, thread, _manager, base = _serve(monkeypatch, tmp_path)
+    try:
+        for radius in ("1.5", "12.1", "nan", "not-a-number"):
+            try:
+                _json_get(base + "/api/physics/ray?r0=" + radius)
+            except HTTPError as error:
+                assert error.code == 400
+            else:
+                raise AssertionError(f"invalid closest approach should be rejected: {radius}")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
 
 def test_training_api_exposes_status_start_and_stop(monkeypatch, tmp_path):
     server, thread, manager, base = _serve(monkeypatch, tmp_path)
