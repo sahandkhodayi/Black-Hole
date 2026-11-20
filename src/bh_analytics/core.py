@@ -170,15 +170,55 @@ def _load_evaluations(root: Path, run_dir: Path) -> list[dict[str, Any]]:
     return evaluations
 
 
+
+def _summary_from_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Create useful headline metrics from per-ray rows when summary.json is absent."""
+    numeric = {
+        key: [float(row[key]) for row in rows
+              if isinstance(row.get(key), (int, float)) and math.isfinite(float(row[key]))]
+        for key in ("rmse_u", "rmse_v", "mae_u", "mae_v", "normalized_rmse")
+    }
+    summary: dict[str, Any] = {
+        "num_rays": len({row.get("case_id") for row in rows if row.get("case_id") is not None}),
+    }
+    for key, values in numeric.items():
+        if values:
+            summary[f"mean_{key}"] = sum(values) / len(values)
+    return summary
+
+
+def _fill_pair_summary(summary: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Fill absent aggregate metrics from metrics_by_ray.csv without replacing saved values."""
+    result = dict(summary)
+    grouped: dict[str, list[dict[str, Any]]] = {"mlp": [], "ppo": []}
+    for row in rows:
+        model = str(row.get("model", "")).strip().lower()
+        if model in grouped:
+            grouped[model].append(row)
+    for model, model_rows in grouped.items():
+        if not model_rows:
+            continue
+        aggregate = _summary_from_metrics(model_rows)
+        saved = dict(result.get(model) or {})
+        for key, value in aggregate.items():
+            saved.setdefault(key, value)
+        result[model] = saved
+    if "num_test_rays" not in result:
+        result["num_test_rays"] = len({row.get("case_id") for row in rows if row.get("case_id") is not None})
+    return result
+
+
 def _make_mlp(root: Path, folder: Path) -> dict[str, Any]:
     config = _read_json(folder / "config.json")
     history = read_csv(folder / "history.csv")
     best_epoch = config.get("best_epoch")
-    rollout_values = [
-        row.get("validation_rollout_normalized_rmse")
-        for row in history
+    rollout_rows = [
+        row for row in history
         if isinstance(row.get("validation_rollout_normalized_rmse"), (int, float))
     ]
+    rollout_values = [row["validation_rollout_normalized_rmse"] for row in rollout_rows]
+    if best_epoch is None and rollout_rows:
+        best_epoch = min(rollout_rows, key=lambda row: row["validation_rollout_normalized_rmse"]).get("epoch")
     best_rollout = min(rollout_values) if rollout_values else config.get(
         "best_validation_rollout_normalized_rmse"
     )
@@ -221,6 +261,9 @@ def _make_rl(root: Path, folder: Path) -> dict[str, Any]:
         preferred = evaluations[0]
     summary = preferred["summary"] if preferred else {}
     metrics = preferred["metrics"] if preferred else []
+    if metrics:
+        fallback = _summary_from_metrics(metrics)
+        summary = {**fallback, **summary}
     notes: list[str] = []
     if not evaluations:
         notes.append("No evaluation_* folder with metrics.csv or summary.json was found.")
@@ -251,6 +294,7 @@ def _make_presentation(root: Path, folder: Path) -> dict[str, Any]:
     summary = _read_json(comparison_dir / "summary.json")
     metadata = _read_json(comparison_dir / "run_metadata.json")
     rows = read_csv(comparison_dir / "metrics_by_ray.csv")
+    summary = _fill_pair_summary(summary, rows)
     notes: list[str] = []
     if not summary:
         notes.append("The comparison summary is missing or could not be read.")
@@ -293,14 +337,25 @@ def discover_experiments(outputs_root: str | Path) -> list[dict[str, Any]]:
         base = root / kind
         if base.is_dir():
             for folder in sorted(base.iterdir(), key=lambda item: item.name.lower()):
-                if folder.is_dir() and (folder / "config.json").is_file():
+                has_config = (folder / "config.json").is_file()
+                has_mlp_history = kind == "mlp_runs" and (folder / "history.csv").is_file()
+                has_rl_results = kind == "rl_runs" and (
+                    (folder / "live_history.csv").is_file()
+                    or any(folder.glob("evaluation_*/summary.json"))
+                    or any(folder.glob("evaluation_*/metrics.csv"))
+                )
+                if folder.is_dir() and (has_config or has_mlp_history or has_rl_results):
                     experiments.append(builder(root, folder))
     presentation_root = root / "presentation"
     if presentation_root.is_dir():
         for folder in sorted(presentation_root.iterdir(), key=lambda item: item.name.lower()):
-            if folder.is_dir() and (folder / "comparison" / "summary.json").is_file():
+            comparison = folder / "comparison"
+            if folder.is_dir() and any((comparison / name).is_file() for name in ("summary.json", "metrics_by_ray.csv", "analysis.md")):
                 experiments.append(_make_presentation(root, folder))
-    return sorted(experiments, key=lambda item: (item["kind"], item["name"].lower()))
+    # Show the most understandable, complete result first: paired model comparison,
+    # then PPO evaluation, then standalone MLP training runs.
+    priority = {"presentation": 0, "rl": 1, "mlp": 2}
+    return sorted(experiments, key=lambda item: (priority.get(item["kind"], 9), item["name"].lower()))
 
 
 def get_experiment(outputs_root: str | Path, experiment_id: str) -> dict[str, Any] | None:

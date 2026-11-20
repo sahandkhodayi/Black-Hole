@@ -1,10 +1,298 @@
-function renderDetail(){if(!selected)return;const d=selected;const header=`<div class="hero"><div><div class="eyebrow">${typeLabel(d.kind)}</div><h2>${esc(d.name)}</h2><p>${esc(d.label)} · ${esc(d.path)}</p></div><div class="tag">${esc(d.status)}</div></div>${(d.notes||[]).map(n=>`<div class="warning">${esc(n)}</div>`).join('')}${tabs()}<div id="tab-content"></div>`;$('content').innerHTML=header;document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{activeTab=b.dataset.tab;renderDetail()}));const target=$('tab-content');({overview:renderOverview,training:renderTraining,evaluation:renderEvaluation,artifacts:renderArtifacts}[activeTab]||renderOverview)(target,d)}
-function renderOverview(t,d){t.innerHTML=`<div class="cards">${cardsFor(d)}</div>${compareBlock(d)}<div class="section-grid"><div class="panel"><h3>Experiment configuration</h3><pre class="config">${esc(JSON.stringify(d.config||{},null,2))}</pre></div><div class="panel"><h3>Saved artifacts</h3>${[['Figures',d.artifacts],['CSV files',d.csv_files],['Training samples',d.history],['Evaluation groups',d.evaluations]].map(([n,v])=>`<div class="file-row"><span>${n}</span><strong>${(v||[]).length}</strong></div>`).join('')}<p class="sub">Read-only analysis: saved weights and source CSVs are not modified.</p></div></div>`;if(d.kind==='presentation')drawComparisonBars(d)}
-function drawChart(canvas,rows,xKey,series){if(!canvas||!rows?.length)return false;const w=canvas.clientWidth,h=canvas.clientHeight,dpr=devicePixelRatio||1,ctx=canvas.getContext('2d');canvas.width=w*dpr;canvas.height=h*dpr;ctx.scale(dpr,dpr);const valid=series.map(s=>({...s,p:rows.map(r=>[Number(r[xKey]),Number(r[s.key])]).filter(p=>p.every(Number.isFinite))})).filter(s=>s.p.length);if(!valid.length)return false;const xs=rows.map(r=>Number(r[xKey])).filter(Number.isFinite),ys=valid.flatMap(s=>s.p.map(p=>p[1])),xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys),pad={l:60,r:15,t:25,b:32},pw=w-pad.l-pad.r,ph=h-pad.t-pad.b;ctx.clearRect(0,0,w,h);ctx.font='10px sans-serif';ctx.fillStyle='#90a2bd';ctx.strokeStyle='#273750';for(let i=0;i<5;i++){const y=pad.t+ph*i/4;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();ctx.fillText((ymax-(ymax-ymin)*i/4).toExponential(2),4,y+3)}valid.forEach((s,i)=>{ctx.beginPath();ctx.strokeStyle=['#69d9e9','#a99bff','#f2bd71'][i%3];ctx.lineWidth=2;s.p.forEach(([x,y],j)=>{const px=pad.l+(x-xmin)/(xmax-xmin||1)*pw,py=pad.t+ph-(y-ymin)/(ymax-ymin||1)*ph;j?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.fillText(s.label,pad.l+i*150,pad.t+11)});ctx.fillStyle='#90a2bd';ctx.fillText(xKey,w/2-15,h-7);return true}
-function drawBars(canvas,a,b){if(!canvas||![a,b].every(v=>Number.isFinite(Number(v))))return;const ctx=canvas.getContext('2d'),w=canvas.clientWidth,h=canvas.clientHeight,dpr=devicePixelRatio||1;canvas.width=w*dpr;canvas.height=h*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);const max=Math.max(Number(a),Number(b),1e-12)*1.2;[['MLP',a,'#69d9e9'],['PPO',b,'#a99bff']].forEach(([name,val,color],i)=>{const y=45+i*76;ctx.fillStyle='#9bacc4';ctx.font='12px sans-serif';ctx.fillText(name,10,y+17);ctx.fillStyle='#25344a';ctx.fillRect(62,y,w-88,25);ctx.fillStyle=color;ctx.fillRect(62,y,(w-88)*Number(val)/max,25);ctx.fillStyle='#eef4ff';ctx.fillText(Number(val).toPrecision(4),68+(w-88)*Number(val)/max,y+17)})}
-function drawComparisonBars(d){const s=d.comparison||{};drawBars($('compare-u'),s.mlp?.mean_rmse_u,s.ppo?.mean_rmse_u);drawBars($('compare-v'),s.mlp?.mean_rmse_v,s.ppo?.mean_rmse_v)}
-function renderTraining(t,d){const h=d.history||[],rl=d.kind==='rl',x=rl?'timesteps':'epoch',main=rl?[{key:'episode_reward',label:'Episode reward'},{key:'reward_mean',label:'Mean reward'}]:[{key:'train_mse',label:'Train MSE'},{key:'validation_mse',label:'Validation MSE'}],extra=rl?[{key:'validation_rmse_u',label:'Validation RMSE u'},{key:'validation_rmse_v',label:'Validation RMSE v'}]:[{key:'validation_rollout_normalized_rmse',label:'Validation rollout NRMSE'}];t.innerHTML=`<div class="section-grid"><div class="panel"><h3>${rl?'Training reward':'Optimization loss'}</h3><canvas class="chart" id="history-main"></canvas></div><div class="panel"><h3>${rl?'Validation error':'Autoregressive validation error'}</h3><canvas class="chart" id="history-extra"></canvas></div></div><div class="panel"><h3>Reproducibility configuration</h3><pre class="config">${esc(JSON.stringify(d.config||{},null,2))}</pre></div>`;if(!drawChart($('history-main'),h,x,main))$('history-main').insertAdjacentHTML('afterend','<p class="sub">No compatible training history was recorded.</p>');if(!drawChart($('history-extra'),h,x,extra))$('history-extra').insertAdjacentHTML('afterend','<p class="sub">No compatible validation series was recorded.</p>')}
-function tableHTML(rows){if(!rows?.length)return '<div class="empty">No per-ray metric rows are available.</div>';const cols=Object.keys(rows[0]);return `<div class="table-wrap"><table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,1000).map(r=>`<tr>${cols.map(c=>`<td>${fmt(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}
-function renderEvaluation(t,d){if(d.kind==='presentation'){t.innerHTML=`${compareBlock(d)}<div class="panel"><h3>Per-ray model metrics</h3>${tableHTML(d.metrics)}</div>`;drawComparisonBars(d);return}if(d.kind!=='rl'){t.innerHTML='<div class="empty">This MLP run has training history, but no standalone evaluation CSV. Use a paired presentation run for autoregressive test comparisons.</div>';return}const ev=d.evaluations||[];t.innerHTML=`<div class="panel"><div class="panel-head"><h3>Evaluation split</h3><select class="select" id="eval-select">${ev.map(e=>`<option value="${esc(e.name)}">${esc(e.name)}</option>`).join('')}</select></div><div id="eval-details"></div></div>`;const select=$('eval-select'),show=()=>{const e=ev.find(v=>v.name===select.value),s=e?.summary||{};$('eval-details').innerHTML=e?`<div class="cards" style="margin-top:14px">${metricCard('Rays',s.num_rays,'Complete trajectories')}${metricCard('Mean RMSE u',s.mean_rmse_u,'Lower is better')}${metricCard('Mean RMSE v',s.mean_rmse_v,'Lower is better')}</div>${tableHTML(e.metrics)}${(e.artifacts||[]).map(a=>`<img style="max-width:100%;margin-top:14px" src="/artifact?path=${encodeURIComponent(a.path)}" alt="${esc(a.name)}">`).join('')}`:'No saved evaluation for this split.'};select?.addEventListener('change',show);show()}
-function renderArtifacts(t,d){const imgs=d.artifacts||[],files=d.csv_files||[];t.innerHTML=`<div class="panel"><h3>Saved figures (${imgs.length})</h3><div class="gallery">${imgs.length?imgs.map(a=>`<div class="figure"><a target="_blank" rel="noopener" href="/artifact?path=${encodeURIComponent(a.path)}"><img loading="lazy" src="/artifact?path=${encodeURIComponent(a.path)}" alt="${esc(a.name)}"></a><div>${esc(a.name)}</div></div>`).join(''):'<p class="muted">No saved figures found.</p>'}</div></div><div class="panel"><h3>CSV data (${files.length})</h3>${files.map(f=>`<div class="file-row"><span>${esc(f.name)}<small>${esc(f.path)} · ${f.rows} rows</small></span><a download href="/artifact?path=${encodeURIComponent(f.path)}">Download ↗</a></div>`).join('')||'<p class="muted">No CSV files found.</p>'}</div>`}
-$('search').addEventListener('input',renderList);$('refresh').addEventListener('click',refresh);$('report').addEventListener('click',async()=>{if(!selected)return;const b=$('report'),tab=window.open('about:blank','_blank','noopener');b.disabled=true;b.textContent='Generating…';try{const data=await api('/api/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selected.id})});if(tab)tab.location=data.url;else location.href=data.url;b.textContent='Report generated ✓'}catch(e){if(tab)tab.close();alert('Report generation failed: '+e.message);b.textContent='Generate HTML report ↗'}finally{b.disabled=false}});window.addEventListener('resize',()=>{if(selected&&activeTab==='training')renderDetail()});refresh();
+function friendlyType(item) {
+  if (item.kind === "presentation") return "MLP vs PPO comparison";
+  if (item.kind === "mlp") return "Neural network training";
+  if (item.kind === "rl") return "PPO training and test";
+  return "Experiment";
+}
+
+function renderList() {
+  const list = $("experiment-list");
+  if (!experiments.length) {
+    list.innerHTML = '<p class="muted small">No saved runs found yet.</p>';
+    return;
+  }
+  list.innerHTML = experiments.map((item) => `
+    <button class="experiment-choice ${selected?.id === item.id ? "selected" : ""}" data-id="${esc(item.id)}">
+      <span class="choice-title">${esc(item.name)}</span>
+      <span class="choice-type">${esc(friendlyType(item))}</span>
+    </button>`).join("");
+  list.querySelectorAll("[data-id]").forEach((button) => {
+    button.addEventListener("click", () => selectExperiment(button.dataset.id));
+  });
+}
+
+function showNoRuns() {
+  $("report").disabled = true;
+  $("content").innerHTML = `
+    <section class="empty-state">
+      <div class="empty-icon">◎</div>
+      <h2>No saved experiment results found</h2>
+      <p>This page does not train a model. It reads results that your training or evaluation commands have already saved.</p>
+      <div class="next-steps">
+        <strong>Where it looks</strong>
+        <code>outputs/mlp_runs/</code>
+        <code>outputs/rl_runs/</code>
+        <code>outputs/presentation/</code>
+      </div>
+      <p class="muted">Start the dashboard from the Black Hole Lab project folder and make sure <code>--root</code> points to its <code>outputs</code> folder. No manual CSV preparation is needed.</p>
+    </section>`;
+}
+
+async function refresh() {
+  $("experiment-list").innerHTML = '<p class="muted">Looking for saved experiments…</p>';
+  try {
+    const data = await api("/api/experiments");
+    experiments = data.experiments || [];
+    renderList();
+    if (!experiments.length) {
+      selected = null;
+      showNoRuns();
+      return;
+    }
+    // The backend puts the paired comparison first; it is the easiest result to understand.
+    const next = selected && experiments.find((item) => item.id === selected.id)
+      ? selected.id : experiments[0].id;
+    await selectExperiment(next);
+  } catch (error) {
+    $("experiment-list").innerHTML = "";
+    $("content").innerHTML = `<section class="empty-state"><h2>Could not load results</h2><p>${esc(error.message)}</p><p class="muted">Check that the dashboard was started from the project folder with the correct outputs directory.</p></section>`;
+  }
+}
+
+async function selectExperiment(id) {
+  try {
+    selected = await api("/api/experiment?id=" + encodeURIComponent(id));
+    $("report").disabled = false;
+    renderList();
+    renderExperiment(selected);
+  } catch (error) {
+    $("content").innerHTML = `<section class="empty-state"><h2>Could not open this experiment</h2><p>${esc(error.message)}</p></section>`;
+  }
+}
+
+function metricCard(label, value, explanation = "") {
+  return `<div class="metric-card">
+    <span class="metric-label">${esc(label)}</span>
+    <strong class="metric-value">${esc(fmt(value))}</strong>
+    ${explanation ? `<span class="metric-help">${esc(explanation)}</span>` : ""}
+  </div>`;
+}
+
+function imageGallery(artifacts) {
+  const images = (artifacts || []).filter((item) => item.kind === "image");
+  if (!images.length) return "";
+  return `<section class="section">
+    <div class="section-heading"><div><p class="eyebrow">VISUAL RESULTS</p><h2>What the paths look like</h2></div></div>
+    <div class="image-grid">${images.map((image) => `
+      <a class="image-card" href="/artifact?path=${encodeURIComponent(image.path)}" target="_blank" rel="noopener">
+        <img loading="lazy" src="/artifact?path=${encodeURIComponent(image.path)}" alt="${esc(image.name)}">
+        <span>${esc(image.name.replace(/[_-]/g, " "))} ↗</span>
+      </a>`).join("")}</div>
+  </section>`;
+}
+
+function perRayTable(rows, paired = false) {
+  if (!rows?.length) return '<p class="muted">Individual path scores were not saved. The overall result above is still available.</p>';
+  const data = paired ? rows.map((row) => ({
+    ray: row.case_id,
+    model: row.model,
+    error: row.normalized_rmse,
+    radial: row.rmse_u,
+    derivative: row.rmse_v
+  })) : rows.map((row) => ({
+    ray: row.case_id,
+    model: "PPO",
+    error: null,
+    radial: row.rmse_u,
+    derivative: row.rmse_v
+  }));
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>Test path</th><th>Model</th>${paired ? "<th>Overall error</th>" : ""}<th>Distance error</th><th>Change error</th></tr></thead>
+    <tbody>${data.slice(0, 100).map((row) => `<tr>
+      <td>${esc(row.ray)}</td><td>${esc(row.model)}</td>
+      ${paired ? `<td>${esc(fmt(row.error))}</td>` : ""}
+      <td>${esc(fmt(row.radial))}</td><td>${esc(fmt(row.derivative))}</td>
+    </tr>`).join("")}</tbody>
+  </table></div>
+  <p class="table-note">Smaller errors mean the prediction stayed closer to the numerical reference.</p>`;
+}
+
+function resultBar(name, value, max, tone, display) {
+  if (!isNumber(value)) return "";
+  const width = max > 0 ? Math.max(1, (value / max) * 100) : 0;
+  return `<div class="bar-row">
+    <div class="bar-top"><span>${esc(name)}</span><strong>${esc(display ?? fmt(value))}</strong></div>
+    <div class="bar-track"><div class="bar-fill ${tone}" style="width:${width}%"></div></div>
+  </div>`;
+}
+
+function renderComparison(data) {
+  const summary = data.summary || {};
+  const mlp = data.comparison?.mlp || summary.mlp || {};
+  const ppo = data.comparison?.ppo || summary.ppo || {};
+  const mlpError = mlp.mean_normalized_rmse;
+  const ppoError = ppo.mean_normalized_rmse;
+  const rays = summary.num_test_rays ?? summary.num_rays;
+  let conclusion = "The saved results include a comparison of both models.";
+  let winner = null;
+  let ratioText = "";
+  if (isNumber(mlpError) && isNumber(ppoError)) {
+    winner = mlpError <= ppoError ? "MLP" : "PPO";
+    const ratio = Math.max(mlpError, ppoError) / Math.max(Math.min(mlpError, ppoError), 1e-12);
+    conclusion = winner === "MLP"
+      ? `The MLP followed the reference paths more closely in this test. Its average error was about ${fmt(ratio, 2)} times smaller than PPO's.`
+      : `PPO followed the reference paths more closely in this test. Its average error was about ${fmt(ratio, 2)} times smaller than the MLP's.`;
+    ratioText = `The lower bar is the more accurate result for these test paths.`;
+  } else if (isNumber(mlp.mean_rmse_u) && isNumber(ppo.mean_rmse_u)) {
+    winner = mlp.mean_rmse_u <= ppo.mean_rmse_u ? "MLP" : "PPO";
+    conclusion = `${winner} had the smaller average distance-prediction error in the saved results.`;
+  }
+  const maxError = Math.max(isNumber(mlpError) ? mlpError : 0, isNumber(ppoError) ? ppoError : 0);
+  const cards = [
+    metricCard("Unseen test paths", rays, "Paths not used to train these models"),
+    metricCard("MLP average error", mlpError, "Lower is better"),
+    metricCard("PPO average error", ppoError, "Lower is better")
+  ].join("");
+  const bars = isNumber(mlpError) && isNumber(ppoError)
+    ? resultBar("MLP", mlpError, maxError, "blue") + resultBar("PPO", ppoError, maxError, "violet")
+    : '<p class="muted">A single overall comparison score was not saved. The per-path distance and change errors are shown below when available.</p>';
+  const badge = winner ? `<span class="result-badge">${winner} performed better on this test</span>` : "";
+  const testIds = (summary.test_case_ids || []).join(", ");
+  $("content").innerHTML = `
+    <section class="result-intro">
+      <div><p class="eyebrow">MODEL COMPARISON</p><h2>${esc(data.name.replace(/[_-]/g, " "))}</h2>
+        <p class="lead">${isNumber(rays) ? `Two models were tested on ${rays} complete photon paths that were kept out of training.` : "Two models were evaluated using the saved test results."}</p>
+      </div>${badge}
+    </section>
+    <section class="metric-grid">${cards}</section>
+    <section class="section result-panel">
+      <p class="eyebrow">THE MAIN RESULT</p>
+      <h2>${esc(winner ? winner + " was more accurate on this test" : "How the models compared")}</h2>
+      <p class="conclusion">${esc(conclusion)}</p>
+      <div class="bar-chart">${bars}</div>
+      <p class="table-note">Prediction error measures how far each model's predicted path was from the DOP853 numerical reference. ${esc(ratioText)}</p>
+    </section>
+    <section class="section explainer">
+      <div><p class="eyebrow">HOW TO READ THIS</p><h2>What does “error” mean?</h2></div>
+      <p>For each point on a light path, the model predicts the photon's next state. We compare that prediction with the numerical reference. An error of zero would mean a perfect match; smaller numbers are better.</p>
+      <p><strong>Important:</strong> this is a small test of these particular paths. It does not prove that one type of AI is always better, or that either model discovered Einstein's equations.</p>
+      ${testIds ? `<p class="muted">Test path IDs: ${esc(testIds)}</p>` : ""}
+    </section>
+    <details class="details-panel"><summary>Show the result for each individual path</summary>${perRayTable(data.metrics, true)}</details>
+    ${imageGallery(data.artifacts)}
+    <p class="source-note">These results were read from the saved experiment. Opening this page does not start training or change your files.</p>`;
+}
+
+function drawTrainingChart(rows, xKey, series) {
+  const width = 760, height = 250, left = 62, right = 18, top = 22, bottom = 36;
+  const all = series.flatMap((s) => rows.map((row) => [row[xKey], row[s.key]])
+    .filter(([x, y]) => isNumber(x) && isNumber(y)));
+  if (!all.length) return '<div class="chart-empty">Training history was not saved for this run. The summary above is still available.</div>';
+  const xs = all.map((point) => point[0]), ys = all.map((point) => point[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const x = (value) => left + (value - minX) / (maxX - minX || 1) * (width - left - right);
+  const y = (value) => top + (maxY - value) / (maxY - minY || 1) * (height - top - bottom);
+  const colors = ["#65c9db", "#a99bff", "#e8ae63"];
+  const lines = series.map((s, index) => {
+    const points = rows.map((row) => [row[xKey], row[s.key]])
+      .filter(([xValue, yValue]) => isNumber(xValue) && isNumber(yValue));
+    if (!points.length) return "";
+    const coords = points.map(([px, py]) => `${x(px).toFixed(1)},${y(py).toFixed(1)}`).join(" ");
+    return `<polyline points="${coords}" fill="none" stroke="${colors[index % colors.length]}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }).join("");
+  const grid = [0, 1, 2, 3, 4].map((i) => {
+    const gy = top + i * (height - top - bottom) / 4;
+    return `<line x1="${left}" y1="${gy}" x2="${width-right}" y2="${gy}" stroke="#29364b"/>`;
+  }).join("");
+  const legend = series.map((s, index) => `<span><i style="background:${colors[index % colors.length]}"></i>${esc(s.label)}</span>`).join("");
+  return `<div class="chart-legend">${legend}</div><svg class="training-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Training progress chart">${grid}${lines}<text x="${width/2}" y="${height-7}" text-anchor="middle" fill="#a4b2c5" font-size="12">${esc(xKey === "epoch" ? "Training round" : "Training steps")}</text></svg>`;
+}
+
+function renderMlp(data) {
+  const s = data.summary || {};
+  const cards = [
+    metricCard("Training rounds completed", s.epochs_completed, "How many passes through the training data"),
+    metricCard("Best round", s.best_epoch, "The round with the best validation result"),
+    metricCard("Best validation error", s.best_validation_rollout_normalized_rmse, "Lower is better"),
+    metricCard("Training time", isNumber(s.elapsed_seconds) ? fmt(s.elapsed_seconds, 3) + " seconds" : null, "Time recorded by the training run")
+  ].join("");
+  const history = data.history || [];
+  const chart = drawTrainingChart(history, "epoch", [
+    { key: "train_mse", label: "Training error" },
+    { key: "validation_mse", label: "Validation error" }
+  ]);
+  const hasPair = experiments.some((item) => item.kind === "presentation");
+  $("content").innerHTML = `
+    <section class="result-intro"><div><p class="eyebrow">NEURAL NETWORK TRAINING</p><h2>${esc(data.name.replace(/[_-]/g, " "))}</h2>
+      <p class="lead">This run taught a neural network to predict the next point along a photon path.</p></div></section>
+    <section class="metric-grid">${cards}</section>
+    <section class="section result-panel"><p class="eyebrow">TRAINING PROGRESS</p><h2>Did the model learn from its examples?</h2>
+      ${chart}
+      <p class="table-note">Training error measures performance on examples the model learns from. Validation error uses separate examples to check whether learning carries over. Lower is generally better.</p>
+    </section>
+    <section class="section explainer"><p class="eyebrow">WHAT THIS RESULT TELLS YOU</p>
+      <h2>${isNumber(s.best_validation_rollout_normalized_rmse) ? "The model reached a validation error of " + esc(fmt(s.best_validation_rollout_normalized_rmse)) : "Training summary"}</h2>
+      <p>This page shows how training went. It does not by itself tell us how well the model predicts completely unseen full paths. That needs a separate test evaluation.</p>
+      ${hasPair ? '<p class="muted">A saved MLP-vs-PPO test comparison is available in the experiment list on the left.</p>' : ""}
+    </section>
+    ${imageGallery(data.artifacts)}
+    <p class="source-note">No CSV needs to be opened manually. The dashboard reads the training summary and history saved by the project.</p>`;
+}
+
+function renderRl(data) {
+  const summary = data.summary || {};
+  const cards = [
+    metricCard("Test paths", summary.num_rays, "Complete photon paths evaluated"),
+    metricCard("Average distance error", summary.mean_rmse_u, "Lower is better"),
+    metricCard("Average change error", summary.mean_rmse_v, "Lower is better"),
+    metricCard("Training steps", data.config?.timesteps_actual, "Steps taken while learning")
+  ].join("");
+  const chart = drawTrainingChart(data.history || [], "timesteps", [
+    { key: "reward_mean", label: "Average reward" },
+    { key: "episode_reward", label: "Episode reward" }
+  ]);
+  $("content").innerHTML = `
+    <section class="result-intro"><div><p class="eyebrow">PPO · REINFORCEMENT LEARNING</p><h2>${esc(data.name.replace(/[_-]/g, " "))}</h2>
+      <p class="lead">This agent learned by trying to predict the next point on a photon path and receiving feedback on its predictions.</p></div></section>
+    <section class="metric-grid">${cards}</section>
+    <section class="section result-panel"><p class="eyebrow">LEARNING PROGRESS</p><h2>How its reward changed</h2>${chart}
+      <p class="table-note">Reward is the feedback the agent receives while learning. A rising reward usually means it is improving at the training task.</p>
+    </section>
+    <details class="details-panel"><summary>Show the result for each test path</summary>${perRayTable(data.metrics)}</details>
+    ${imageGallery(data.artifacts)}
+    <section class="section explainer"><h2>How good is this result?</h2>
+      <p>Distance error and change error compare the PPO prediction with the numerical reference. Smaller errors are better. This is a result on the saved test paths, not a guarantee for every possible photon path.</p>
+    </section>
+    <p class="source-note">The dashboard reads the saved test summary directly. Individual CSV files are optional for viewing the overall result.</p>`;
+}
+
+function renderExperiment(data) {
+  if (data.kind === "presentation") renderComparison(data);
+  else if (data.kind === "mlp") renderMlp(data);
+  else if (data.kind === "rl") renderRl(data);
+  else $("content").innerHTML = '<section class="empty-state"><h2>This experiment type is not supported yet.</h2></section>';
+}
+
+$("refresh").addEventListener("click", refresh);
+$("report").addEventListener("click", async () => {
+  if (!selected) return;
+  const button = $("report");
+  button.disabled = true;
+  button.textContent = "Creating report…";
+  try {
+    const result = await api("/api/report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: selected.id })
+    });
+    window.open(result.url, "_blank", "noopener");
+    button.textContent = "Report is ready";
+  } catch (error) {
+    alert("Could not create report: " + error.message);
+    button.textContent = "Save a shareable report ↗";
+  } finally {
+    button.disabled = false;
+  }
+});
+
+refresh();
