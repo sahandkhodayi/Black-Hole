@@ -111,13 +111,16 @@ function drawOrbitCanvas(canvas, data, options = {}) {
     }
     ctx.stroke();
     ctx.restore();
-    return points[count - 1];
+    return { point: points[count - 1], count };
   };
 
   const color = options.referenceColor || "#ffb86b";
   const progress = Number.isFinite(options.progress) ? options.progress : 1;
-  const marker = drawPath(reference, color, false, progress, 2.7);
+  const referenceResult = drawPath(reference, color, false, progress, 2.7);
   if (prediction.length) drawPath(prediction, "#f58da5", true, 1, 2.2);
+  const marker = Number.isInteger(options.markerIndex) && reference.length
+    ? reference[Math.max(0, Math.min(reference.length - 1, options.markerIndex))]
+    : referenceResult?.point;
 
   if (marker) {
     ctx.save();
@@ -221,7 +224,10 @@ function drawStateCanvas(canvas, xValues, yValues, activeIndex, color, zeroLine 
 
 function drawPhysicsViews() {
   if (!physicsRay) return;
-  drawOrbitCanvas($("physics-orbit"), physicsRay, { progress: physicsProgress });
+  drawOrbitCanvas($("physics-orbit"), physicsRay, {
+    progress: physicsProgress,
+    markerIndex: physicsIndex,
+  });
   drawStateCanvas($("u-plot"), physicsRay.phi, physicsRay.u, physicsIndex, "#ffb86b");
   drawStateCanvas($("v-plot"), physicsRay.phi, physicsRay.v, physicsIndex, "#65d2ee", true);
 }
