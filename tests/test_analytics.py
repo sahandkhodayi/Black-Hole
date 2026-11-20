@@ -118,7 +118,7 @@ def test_dashboard_http_api_assets_reports_and_bad_paths(outputs):
             page = response.read()
             assert b"See how gravity bends" in page
             assert b"Trace a photon" in page
-            assert b"dÂ²u/dÏÂ² + u" in page
+            assert b'id="physics-orbit"' in page and b'id="u-plot"' in page and b'id="v-plot"' in page
             assert b"Reproducibility configuration" not in page
             assert response.headers["Content-Security-Policy"]
 
