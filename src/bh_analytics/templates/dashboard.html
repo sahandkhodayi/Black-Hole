@@ -3,72 +3,200 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Black Hole Lab — Results</title>
+  <meta name="theme-color" content="#080d18">
+  <title>Black Hole Lab — Interactive Classroom</title>
   <link rel="stylesheet" href="/assets/dashboard.css">
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar">
+  <div class="site-shell">
+    <header class="topbar">
       <a class="brand" href="/">
         <span class="brand-mark">BH</span>
-        <span><strong>BLACK HOLE LAB</strong><small>Experiment results</small></span>
+        <span><strong>BLACK HOLE LAB</strong><small>Interactive classroom</small></span>
       </a>
-      <div class="sidebar-heading">
-        <span>YOUR EXPERIMENTS</span>
-        <button id="refresh" class="icon-button" title="Refresh saved results" aria-label="Refresh saved results">↻</button>
-      </div>
-      <div id="experiment-list" class="experiment-list">
-        <p class="muted">Looking for saved experiments…</p>
-      </div>
-      <div class="sidebar-note">
-        <span class="status-dot"></span>
-        <span>Runs on your computer. Your results stay local.</span>
-      </div>
-    </aside>
+      <nav class="top-nav" aria-label="Page sections">
+        <a href="#physics">Explore the physics</a>
+        <a href="#learning">Watch the AI</a>
+        <a href="#saved">Saved experiments</a>
+      </nav>
+    </header>
 
-    <main class="main">
-      <header class="page-header">
-        <div>
-          <p class="eyebrow">BLACK HOLE LAB · RESULTS</p>
-          <h1>What did the experiment find?</h1>
-          <p class="intro">Pick an experiment on the left. This page explains the results without requiring you to open data files.</p>
-        </div>
-        <button id="report" class="primary-button" disabled>Save a shareable report <span aria-hidden="true">↗</span></button>
-      </header>
-      <section class="training-launcher" aria-labelledby="training-title">
-        <div class="training-heading">
-          <div class="training-copy">
-            <p class="eyebrow">LIVE TRAINING</p>
-            <h2 id="training-title">Train a PPO agent</h2>
-            <p>Start a training run here. The model trains in the backend, while this page refreshes its graphs once every 60 seconds.</p>
-          </div>
-          <div class="training-controls">
-            <label class="training-field">Training time
-              <select id="training-minutes">
-                <option value="1">1 minute</option>
-                <option value="5" selected>5 minutes</option>
-                <option value="10">10 minutes</option>
-                <option value="30">30 minutes</option>
-              </select>
-            </label>
-            <label class="training-field">Random seed
-              <input id="training-seed" type="number" min="0" max="2147483647" value="42">
-            </label>
-            <button id="start-training" class="primary-button" type="button">Start training</button>
-            <button id="stop-training" class="danger-button" type="button" hidden>Stop &amp; save</button>
-          </div>
-        </div>
-        <div class="training-status-row">
-          <span id="training-status-pill" class="training-status-pill">READY</span>
-          <span id="training-status-message">No training run is active. Your saved results are below.</span>
-        </div>
-        <div id="training-live" aria-live="polite"></div>
+    <main>
+      <section class="hero">
+        <div class="hero-orbit" aria-hidden="true"><span></span><i></i></div>
+        <p class="eyebrow">A DIFFERENTIAL EQUATIONS PROJECT</p>
+        <h1>See how gravity bends <em>light.</em></h1>
+        <p>Change a photon's starting point. Watch the numerical solution curve around a black hole. Then compare it with what a learning agent predicts.</p>
+        <a class="hero-link" href="#physics">Explore the simulation <span>↓</span></a>
       </section>
-      <div id="content" aria-live="polite">
-        <div class="loading-card">Loading your saved results…</div>
-      </div>
-      <footer>BLACK HOLE LAB <span>·</span> A plain-language view of your saved experiment results</footer>
+
+      <section class="lab-section" id="physics">
+        <div class="section-heading">
+          <div class="step-number">01</div>
+          <div>
+            <p class="eyebrow">THE PHYSICS · NUMERICAL SOLUTION</p>
+            <h2>Trace a photon</h2>
+            <p>Move the closest approach and see how the path changes. This curve is calculated from the differential equation, not drawn by hand.</p>
+          </div>
+        </div>
+
+        <div class="physics-grid">
+          <div class="orbit-card">
+            <div class="visual-header">
+              <span><i class="live-dot"></i> DOP853 · REFERENCE SOLUTION</span>
+              <span id="solver-state">Ready</span>
+            </div>
+            <canvas id="physics-orbit" class="orbit-canvas" aria-label="Interactive top-down photon orbit around the black hole"></canvas>
+            <div class="orbit-legend">
+              <span><i class="legend-line reference"></i> Photon path</span>
+              <span><i class="legend-circle horizon"></i> Event horizon · 1 rₛ</span>
+              <span><i class="legend-circle sphere"></i> Photon sphere · 1.5 rₛ</span>
+            </div>
+          </div>
+
+          <aside class="control-card">
+            <p class="eyebrow">CHANGE THE INITIAL CONDITION</p>
+            <label class="slider-label" for="closest-approach">
+              <span>Closest approach, r₀</span>
+              <strong><output id="r0-value">5.00</output> rₛ</strong>
+            </label>
+            <input id="closest-approach" type="range" min="1.6" max="12" step="0.1" value="5">
+            <div class="range-labels"><span>Near photon sphere</span><span>Far away</span></div>
+            <button id="trace-ray" class="primary-button" type="button">Trace this path <span>↗</span></button>
+            <button id="play-ray" class="secondary-button" type="button" disabled>▶ Animate photon</button>
+
+            <div class="readouts">
+              <div><span>Deflection angle</span><strong id="deflection-value">—</strong></div>
+              <div><span>Solver samples</span><strong id="samples-value">—</strong></div>
+            </div>
+            <div class="insight-card">
+              <span class="insight-mark">↗</span>
+              <p id="physics-insight">Bring the photon closer to the photon sphere and the bending becomes stronger.</p>
+            </div>
+          </aside>
+        </div>
+
+        <div class="equation-bridge">
+          <div class="equation-main">
+            <p class="eyebrow">THE EQUATION BEHIND THE CURVE</p>
+            <div class="equation">\(\displaystyle \frac{d^2u}{d\phi^2}+u=\frac{3}{2}u^2\)</div>
+            <p>We use inverse radius \(u=1/r\), and measure distance in Schwarzschild-radius units.</p>
+          </div>
+          <div class="equation-steps">
+            <div class="equation-step">
+              <span>01</span>
+              <strong>Split the equation</strong>
+              <div>\(u'=v\)</div>
+              <div>\(v'=\frac{3}{2}u^2-u\)</div>
+            </div>
+            <div class="equation-step">
+              <span>02</span>
+              <strong>Set the start</strong>
+              <div>\(u(0)=1/r_0\)</div>
+              <div>\(v(0)=0\)</div>
+            </div>
+            <div class="equation-step">
+              <span>03</span>
+              <strong>Integrate</strong>
+              <div>\(\text{DOP853}\)</div>
+              <small>Numerically advances the state in angle φ.</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="state-plots">
+          <div class="state-plot-card">
+            <div class="plot-heading"><strong>Inverse radius</strong><span>u = 1/r</span></div>
+            <canvas id="u-plot" class="state-canvas" aria-label="Inverse radius against angle"></canvas>
+            <p>How close the photon is to the centre at each angle.</p>
+          </div>
+          <div class="state-plot-card">
+            <div class="plot-heading"><strong>Rate of change</strong><span>v = du/dφ</span></div>
+            <canvas id="v-plot" class="state-canvas" aria-label="Derivative of inverse radius against angle"></canvas>
+            <p>The slope of the inverse-radius curve. The marker follows the photon above.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="lab-section learning-section" id="learning">
+        <div class="section-heading">
+          <div class="step-number">02</div>
+          <div>
+            <p class="eyebrow">THE MACHINE LEARNING EXPERIMENT</p>
+            <h2>Can the AI follow the same path?</h2>
+            <p>The blue curve is the numerical reference. The dashed curve is PPO's own step-by-step prediction. Any gap is real prediction error.</p>
+          </div>
+        </div>
+
+        <div class="learning-grid">
+          <div class="orbit-card learning-orbit-card">
+            <div class="visual-header">
+              <span><i class="live-dot"></i> LIVE VALIDATION RAY</span>
+              <span id="training-ray-label">Waiting for a training run</span>
+            </div>
+            <canvas id="training-orbit" class="orbit-canvas" aria-label="PPO predicted photon path compared with DOP853"></canvas>
+            <div class="orbit-legend">
+              <span><i class="legend-line reference"></i> DOP853 reference</span>
+              <span><i class="legend-line prediction"></i> PPO prediction</span>
+            </div>
+            <div id="training-visual-note" class="visual-note">Start training to see the agent's predicted orbit overlaid on the numerical solution. The comparison updates after each validation check.</div>
+          </div>
+
+          <aside class="control-card training-control-card">
+            <p class="eyebrow">RUN AN EXPERIMENT</p>
+            <h3>Train PPO</h3>
+            <p class="control-description">The model trains continuously in the backend. This page refreshes the visual snapshot once per minute so training stays responsive.</p>
+            <label class="field-label" for="training-minutes">Training duration</label>
+            <select id="training-minutes">
+              <option value="1">1 minute · quick check</option>
+              <option value="5" selected>5 minutes · short run</option>
+              <option value="10">10 minutes</option>
+              <option value="30">30 minutes</option>
+            </select>
+            <label class="field-label" for="training-seed">Random seed</label>
+            <input id="training-seed" type="number" min="0" max="2147483647" value="42">
+            <button id="start-training" class="primary-button" type="button">Start training</button>
+            <button id="stop-training" class="stop-button" type="button" hidden>Stop &amp; save</button>
+            <div class="run-status">
+              <span id="training-status-pill" class="status-pill">READY</span>
+              <span id="training-status-message">No active training run.</span>
+            </div>
+            <div id="training-readouts" class="training-readouts"></div>
+          </aside>
+        </div>
+        <div class="reward-card">
+          <div>
+            <p class="eyebrow">LEARNING SIGNAL</p>
+            <h3>Is the agent improving?</h3>
+            <p>Average episode reward. This is training feedback, not proof that the predicted orbit is accurate.</p>
+          </div>
+          <canvas id="reward-plot" class="reward-canvas" aria-label="PPO reward during training"></canvas>
+        </div>
+      </section>
+
+      <section class="lab-section saved-section" id="saved">
+        <div class="saved-heading">
+          <div class="section-heading">
+            <div class="step-number">03</div>
+            <div>
+              <p class="eyebrow">YOUR EXPERIMENTS</p>
+              <h2>Look back at saved results</h2>
+            </div>
+          </div>
+          <div class="saved-actions">
+            <select id="experiment-select" aria-label="Choose a saved experiment">
+              <option value="">Loading saved experiments…</option>
+            </select>
+            <button id="refresh" class="secondary-button" type="button">Refresh</button>
+            <button id="report" class="secondary-button" type="button" disabled>Save HTML report</button>
+          </div>
+        </div>
+        <div id="content" aria-live="polite">
+          <div class="loading-card">Loading saved experiments…</div>
+        </div>
+      </section>
     </main>
+    <footer class="page-footer">BLACK HOLE LAB <span>·</span> DOP853 is the numerical reference. PPO is a teacher-guided approximation, not a replacement for the physics solver.</footer>
   </div>
   <script src="/assets/dashboard-core.js" defer></script>
   <script src="/assets/dashboard-ui.js" defer></script>
