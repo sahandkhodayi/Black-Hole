@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import mimetypes
 import webbrowser
@@ -11,12 +12,14 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from bh_analytics.core import discover_experiments, experiment_index, get_experiment, resolve_artifact
 from bh_analytics.report import generate_report
+from bh_analytics.training import TrainingManager
 
 _TEMPLATE = Path(__file__).parent / "templates" / "dashboard.html"
 
 
-def make_handler(outputs_root: Path):
+def make_handler(outputs_root: Path, *, allow_training: bool = True):
     root = outputs_root.resolve()
+    training = TrainingManager(root)
 
     class DashboardHandler(BaseHTTPRequestHandler):
         server_version = "BlackHoleLabAnalytics/0.1"
@@ -58,6 +61,12 @@ def make_handler(outputs_root: Path):
                     self._send(200, asset_path.read_bytes(), allowed[name])
                 except OSError:
                     self._json(404, {"error": "Asset not found."})
+                return
+            if parsed.path == "/api/training/status":
+                if not allow_training:
+                    self._json(403, {"error": "Browser training is disabled when the server is exposed beyond this computer."})
+                else:
+                    self._json(200, training.status())
                 return
             if parsed.path == "/api/experiments":
                 self._json(200, {"experiments": experiment_index(root)})
@@ -104,7 +113,33 @@ def make_handler(outputs_root: Path):
             self._json(404, {"error": "Unknown endpoint."})
 
         def do_POST(self):  # noqa: N802 - BaseHTTPRequestHandler API
-            if urlparse(self.path).path != "/api/report":
+            parsed_path = urlparse(self.path).path
+            if parsed_path in {"/api/training/start", "/api/training/stop"}:
+                if not allow_training:
+                    self._json(403, {"error": "Browser training is disabled when the server is exposed beyond this computer."})
+                    return
+                origin = self.headers.get("Origin")
+                if origin and urlparse(origin).netloc != self.headers.get("Host"):
+                    self._json(403, {"error": "Cross-origin training requests are not allowed."})
+                    return
+                try:
+                    if parsed_path == "/api/training/start":
+                        length = int(self.headers.get("Content-Length", "0"))
+                        if length <= 0 or length > 8_192:
+                            raise ValueError("Invalid request size.")
+                        body = json.loads(self.rfile.read(length).decode("utf-8"))
+                        self._json(202, training.start(body))
+                    else:
+                        self._json(202, training.stop())
+                except (ValueError, UnicodeError, json.JSONDecodeError) as exc:
+                    self._json(400, {"error": str(exc)})
+                except RuntimeError as exc:
+                    self._json(409, {"error": str(exc)})
+                except OSError as exc:
+                    self._json(500, {"error": f"Training request failed: {exc}"})
+                return
+
+            if parsed_path != "/api/report":
                 self._json(404, {"error": "Unknown endpoint."})
                 return
             try:
@@ -142,11 +177,20 @@ def main() -> None:
     if args.port < 1 or args.port > 65535:
         parser.error("--port must be between 1 and 65535")
 
-    server = ThreadingHTTPServer((args.host, args.port), make_handler(root))
+    try:
+        training_allowed = args.host == "localhost" or ipaddress.ip_address(args.host).is_loopback
+    except ValueError:
+        training_allowed = False
+    server = ThreadingHTTPServer(
+        (args.host, args.port),
+        make_handler(root, allow_training=training_allowed),
+    )
     server.daemon_threads = True
     url = f"http://{args.host}:{args.port}/"
     print(f"Black Hole Lab Analytics is running at {url}")
     print(f"Reading experiments from: {root}")
+    print("Browser training: enabled (localhost only)" if training_allowed
+          else "Browser training: disabled for non-localhost bindings")
     print("Press Ctrl+C to stop the local dashboard.")
     if not args.no_browser and args.host in {"127.0.0.1", "localhost"}:
         webbrowser.open(url)
