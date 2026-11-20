@@ -1,6 +1,7 @@
 let physicsRay = null;
 let physicsIndex = 0;
 let physicsDirty = false;
+let physicsProgress = 1;
 let physicsAnimation = null;
 let trainingVisual = null;
 
@@ -220,7 +221,7 @@ function drawStateCanvas(canvas, xValues, yValues, activeIndex, color, zeroLine 
 
 function drawPhysicsViews() {
   if (!physicsRay) return;
-  drawOrbitCanvas($("physics-orbit"), physicsRay, { progress: 1 });
+  drawOrbitCanvas($("physics-orbit"), physicsRay, { progress: physicsProgress });
   drawStateCanvas($("u-plot"), physicsRay.phi, physicsRay.u, physicsIndex, "#ffb86b");
   drawStateCanvas($("v-plot"), physicsRay.phi, physicsRay.v, physicsIndex, "#65d2ee", true);
 }
@@ -249,6 +250,7 @@ async function tracePhysicsRay() {
     const ray = await api("/api/physics/ray?r0=" + encodeURIComponent(radius));
     physicsRay = ray;
     physicsIndex = Math.floor(ray.phi.length / 2);
+    physicsProgress = 1;
     physicsDirty = false;
     $("r0-value").textContent = radius.toFixed(2);
     $("play-ray").disabled = false;
@@ -267,17 +269,18 @@ async function tracePhysicsRay() {
 function stopPhysicsAnimation() {
   if (physicsAnimation !== null) cancelAnimationFrame(physicsAnimation);
   physicsAnimation = null;
-  $("play-ray").textContent = "▶ Animate photon";
+  $("play-ray").textContent = physicsProgress >= 1 ? "↻ Replay photon" : "▶ Resume photon";
 }
 
-function animatePhysics(startTime) {
+function animatePhysics() {
   const duration = 6500;
+  const startTime = performance.now() - physicsProgress * duration;
   const frame = (now) => {
-    const progress = Math.min(1, (now - startTime) / duration);
+    physicsProgress = Math.min(1, (now - startTime) / duration);
     physicsIndex = Math.min(physicsRay.phi.length - 1,
-      Math.floor(progress * (physicsRay.phi.length - 1)));
+      Math.floor(physicsProgress * (physicsRay.phi.length - 1)));
     drawPhysicsViews();
-    if (progress < 1) physicsAnimation = requestAnimationFrame(frame);
+    if (physicsProgress < 1) physicsAnimation = requestAnimationFrame(frame);
     else {
       physicsAnimation = null;
       $("play-ray").textContent = "↻ Replay photon";
@@ -296,9 +299,12 @@ $("trace-ray").addEventListener("click", tracePhysicsRay);
 $("play-ray").addEventListener("click", () => {
   if (!physicsRay || physicsDirty) return;
   if (physicsAnimation !== null) { stopPhysicsAnimation(); return; }
-  physicsIndex = 0;
+  if (physicsProgress >= 1) {
+    physicsProgress = 0;
+    physicsIndex = 0;
+  }
   $("play-ray").textContent = "Ⅱ Pause animation";
-  animatePhysics(performance.now());
+  animatePhysics();
 });
 
 function scheduleTrainingPoll() {
