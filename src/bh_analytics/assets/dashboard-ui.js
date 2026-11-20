@@ -354,7 +354,7 @@ function renderTrainingSnapshot(snapshot) {
   const history = snapshot.history || [];
   const latest = snapshot.latest || history[history.length - 1] || {};
   const cards = [
-    metricCard("Elapsed time", isNumber(snapshot.elapsed_seconds) ? fmt(snapshot.elapsed_seconds) + " s" : null),
+    metricCard("Elapsed time", snapshot.elapsed_seconds, "Seconds since start"),
     metricCard("Training steps", latest.timesteps),
     metricCard("Average reward", latest.reward_mean, "Recent episode average"),
     metricCard("Validation error (u)", latest.validation_rmse_u, "Lower is better")
@@ -459,4 +459,4 @@ $("stop-training").addEventListener("click", async () => {
   }
 });
 
-pollTrainingStatus();
+refresh().then(pollTrainingStatus);
