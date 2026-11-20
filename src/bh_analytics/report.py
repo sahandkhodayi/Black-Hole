@@ -73,65 +73,125 @@ def _embedded_images(root: Path, artifacts: list[dict[str, str]]) -> str:
 
 
 def render_report(experiment: dict[str, Any], outputs_root: str | Path) -> str:
-    """Render a standalone report; all charts and saved images are embedded."""
+    """Render a beginner-friendly, self-contained report from whatever results exist."""
     root = Path(outputs_root).expanduser().resolve()
     kind = experiment["kind"]
-    config = experiment.get("config") or {}
     summary = experiment.get("summary") or {}
     history = experiment.get("history") or []
     metrics = experiment.get("metrics") or []
     comparison = experiment.get("comparison") or {}
+    cards: list[tuple[str, Any, str]] = []
+    charts = ""
+    conclusion = ""
+    comparison_bars = ""
 
-    if kind == "mlp":
-        cards = [("Epochs", summary.get("epochs_completed")), ("Best epoch", summary.get("best_epoch")),
-                 ("Best validation rollout NRMSE", summary.get("best_validation_rollout_normalized_rmse")),
-                 ("Training time (s)", summary.get("elapsed_seconds"))]
-        charts = _chart(history, "epoch", ["train_mse", "validation_mse"], "Training and validation MSE")
-        charts += _chart(history, "epoch", ["validation_rollout_normalized_rmse"], "Autoregressive validation NRMSE")
-    elif kind == "rl":
-        cards = [("Algorithm", config.get("algorithm", "PPO")), ("Timesteps", config.get("timesteps_actual")),
-                 ("Training time (s)", config.get("seconds_actual")), ("Test rays", summary.get("num_rays")),
-                 ("Mean RMSE u", summary.get("mean_rmse_u")), ("Mean RMSE v", summary.get("mean_rmse_v"))]
-        charts = _chart(history, "timesteps", ["episode_reward", "reward_mean"], "Training reward")
-        charts += _chart(history, "timesteps", ["validation_rmse_u", "validation_rmse_v"], "Validation RMSE")
+    if kind == "presentation":
+        mlp = comparison.get("mlp") or summary.get("mlp") or {}
+        ppo = comparison.get("ppo") or summary.get("ppo") or {}
+        mlp_error = mlp.get("mean_normalized_rmse")
+        ppo_error = ppo.get("mean_normalized_rmse")
+        rays = summary.get("num_test_rays", summary.get("num_rays"))
+        cards = [
+            ("Unseen test paths", rays, "Paths kept out of training"),
+            ("MLP average error", mlp_error, "Lower is better"),
+            ("PPO average error", ppo_error, "Lower is better"),
+        ]
+        if isinstance(mlp_error, (int, float)) and isinstance(ppo_error, (int, float)):
+            winner = "MLP" if mlp_error <= ppo_error else "PPO"
+            ratio = max(mlp_error, ppo_error) / max(min(mlp_error, ppo_error), 1e-12)
+            loser = "PPO" if winner == "MLP" else "MLP"
+            conclusion = (
+                f"{winner} followed the reference paths more closely in this test. "
+                f"Its average error was about {ratio:.2g} times smaller than {loser}'s."
+            )
+            maximum = max(mlp_error, ppo_error, 1e-12)
+            comparison_bars = (
+                f'<div class="bar"><span>MLP</span><div><i style="width:{mlp_error/maximum*100:.2f}%;background:#62c7de"></i></div><b>{mlp_error:.4g}</b></div>'
+                f'<div class="bar"><span>PPO</span><div><i style="width:{ppo_error/maximum*100:.2f}%;background:#ab9af4"></i></div><b>{ppo_error:.4g}</b></div>'
+            )
+        else:
+            conclusion = "The saved results include a paired comparison. Some aggregate error values were not recorded."
+        explanation = (
+            "Each model predicted the next point along photon paths that were not used for training. "
+            "We compared those predictions with the DOP853 numerical reference. An error of zero is a perfect match; lower is better. "
+            "This small test does not prove that one AI method is always better or that either model discovered Einstein's equations."
+        )
+        charts = '<p class="muted">There is no single training curve for a paired comparison. The important result is how both models performed on the same unseen paths.</p>'
+        heading = "Which model followed the paths more accurately?"
+    elif kind == "mlp":
+        cards = [
+            ("Training rounds", summary.get("epochs_completed"), "Rounds completed"),
+            ("Best round", summary.get("best_epoch"), "Selected using validation data"),
+            ("Best validation error", summary.get("best_validation_rollout_normalized_rmse"), "Lower is better"),
+            ("Training time", summary.get("elapsed_seconds"), "Seconds"),
+        ]
+        charts = _chart(history, "epoch", ["train_mse", "validation_mse"], "Training progress")
+        explanation = (
+            "The network learns from examples of photon motion. Training error measures its fit on examples it learns from; "
+            "validation error checks performance on separate examples. A separate held-out test is needed to judge full-path predictions."
+        )
+        conclusion = "This run records how the neural network learned. It is not, by itself, a comparison against PPO."
+        heading = "How did the neural network learn?"
     else:
-        cards = [("Held-out test rays", summary.get("num_test_rays"))]
-        for model in ("mlp", "ppo"):
-            for variable in ("u", "v"):
-                cards.append((f"{model.upper()} mean RMSE {variable}", (comparison.get(model) or {}).get(f"mean_rmse_{variable}")))
-        charts = '<p class="muted">This paired comparison has no single training history. Compare each model on the same held-out rays below.</p>'
+        cards = [
+            ("Test paths", summary.get("num_rays"), "Complete photon paths"),
+            ("Average distance error", summary.get("mean_rmse_u"), "Lower is better"),
+            ("Average change error", summary.get("mean_rmse_v"), "Lower is better"),
+        ]
+        charts = _chart(history, "timesteps", ["reward_mean", "episode_reward"], "Training reward")
+        explanation = (
+            "PPO learns by trying predictions and receiving feedback. The test errors show how far its predictions were from "
+            "the numerical reference on the saved test paths. Smaller errors are better."
+        )
+        conclusion = "This report summarizes the saved PPO training and evaluation results."
+        heading = "How did PPO perform?"
 
-    card_html = "".join(f'<div class="card"><span>{html.escape(label)}</span><strong>{html.escape(_display(value))}</strong></div>' for label, value in cards)
-    columns = list(metrics[0]) if metrics else []
-    table = ""
-    if columns:
-        header = "".join(f"<th>{html.escape(str(column))}</th>" for column in columns)
-        body = "".join("<tr>" + "".join(f'<td>{html.escape(_display(row.get(column)))}</td>' for column in columns) + "</tr>" for row in metrics[:500])
+    card_html = "".join(
+        f'<div class="card"><span>{html.escape(label)}</span><strong>{html.escape(_display(value))}</strong><small>{html.escape(note)}</small></div>'
+        for label, value, note in cards
+    )
+
+    if metrics:
+        if kind == "presentation":
+            columns = [("case_id", "Test path"), ("model", "Model"), ("normalized_rmse", "Overall error"), ("rmse_u", "Distance error"), ("rmse_v", "Change error")]
+        else:
+            columns = [("case_id", "Test path"), ("rmse_u", "Distance error"), ("rmse_v", "Change error")]
+        present_columns = [(key, label) for key, label in columns if key in metrics[0]]
+        header = "".join(f"<th>{html.escape(label)}</th>" for _, label in present_columns)
+        body = "".join(
+            "<tr>" + "".join(f"<td>{html.escape(_display(row.get(key)))}</td>" for key, _ in present_columns) + "</tr>"
+            for row in metrics[:200]
+        )
         table = f'<div class="scroll"><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div>'
     else:
-        table = '<p class="muted">No per-ray metrics CSV was found for this experiment.</p>'
+        table = '<p class="muted">Individual test-path scores were not saved. The overall summary above is still available.</p>'
 
-    analysis = experiment.get("analysis_markdown", "")
-    notes = experiment.get("notes", [])
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Black Hole Lab — {html.escape(experiment['name'])}</title>
+    figures = _embedded_images(root, experiment.get("artifacts", []))
+    return f'''<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Black Hole Lab — {html.escape(experiment["name"])}</title>
 <style>
-:root{{--bg:#090d18;--panel:#121a2b;--line:#293650;--text:#edf3ff;--muted:#9caec8;--cyan:#63d5e8}}*{{box-sizing:border-box}}
-body{{margin:0;background:radial-gradient(ellipse at 70% -15%,#1f3150 0,transparent 45%),var(--bg);color:var(--text);font:15px/1.55 Inter,Segoe UI,Arial,sans-serif}}
-main{{max-width:1180px;margin:auto;padding:36px 24px 70px}}h1{{font-size:clamp(28px,5vw,46px);line-height:1.1;margin:10px 0}}h2{{font-size:19px;margin:0 0 16px}}.muted,figcaption{{color:var(--muted)}}section{{margin:30px 0}}.meta{{color:var(--muted);font-size:12px;margin:15px 0 28px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}}.card,.panel,figure{{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}}.card span{{display:block;color:var(--muted);font-size:12px}}.card strong{{display:block;font-size:22px;margin-top:6px;overflow-wrap:anywhere}}svg{{width:100%;height:auto;display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:14px 0}}.gallery{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}}figure{{margin:0;padding:10px}}figure img{{width:100%;height:auto;display:block;border-radius:8px}}figcaption{{font-size:12px;padding:8px 4px 2px}}.scroll{{overflow:auto;border:1px solid var(--line);border-radius:12px}}table{{width:100%;border-collapse:collapse;white-space:nowrap;font-size:13px}}th,td{{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}}th{{color:var(--cyan);background:#182238}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;color:#d2ddf0}}footer{{margin-top:45px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:12px}}
-</style></head><body><main><div style="color:var(--cyan);font-size:12px;letter-spacing:.16em;text-transform:uppercase">Black Hole Lab · Experiment report</div>
-<h1>{html.escape(experiment['name'])}</h1><div class="muted">{html.escape(experiment.get('label', kind))} · {html.escape(experiment.get('status', 'unknown'))}</div>
-<div class="meta">ID: {html.escape(experiment['id'])} · {len(experiment.get('artifacts', []))} image artifacts · Generated {generated}</div>
-<section><h2>Experiment summary</h2><div class="grid">{card_html}</div></section>
-<section><h2>Training and validation history</h2>{charts}</section>
-<section><h2>Evaluation metrics</h2>{table}</section>
-<section><h2>Saved figures</h2><div class="gallery">{_embedded_images(root, experiment.get('artifacts', []))}</div></section>
-{f'<section><h2>Existing analysis notes</h2><pre>{html.escape(analysis)}</pre></section>' if analysis else ''}
-<section><h2>Experiment configuration</h2><pre>{html.escape(json.dumps(config, indent=2, ensure_ascii=False))}</pre></section>
-{f'<section><h2>Data notes</h2><ul>{"".join(f"<li>{html.escape(note)}</li>" for note in notes)}</ul></section>' if notes else ''}
-<footer>Generated by Black Hole Lab Analytics. Values are read from saved run artifacts; this report does not retrain models or alter experiment outputs.</footer></main></body></html>'''
-
+:root{{--bg:#0b1220;--panel:#142238;--line:#2b3c54;--text:#edf3fb;--muted:#a5b2c5;--blue:#62c7de;--violet:#ab9af4}}
+*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 Inter,"Segoe UI",Arial,sans-serif}}
+main{{max-width:1000px;margin:auto;padding:38px 24px 65px}}.eyebrow{{color:var(--blue);font-size:11px;font-weight:800;letter-spacing:.15em}}
+h1{{font-size:clamp(28px,5vw,42px);line-height:1.15;margin:9px 0}}h2{{font-size:20px;margin:0 0 12px}}p{{max-width:800px}}.muted,small{{color:var(--muted)}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:24px 0}}
+.card,.panel{{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:17px}}.card span,.card small{{display:block;color:var(--muted);font-size:11px}}.card strong{{display:block;font-size:24px;margin:7px 0;overflow-wrap:anywhere}}
+section{{margin:30px 0}}.bar{{display:grid;grid-template-columns:52px minmax(80px,1fr) 85px;gap:12px;align-items:center;margin:15px 0;font-size:13px}}.bar>div{{height:15px;border-radius:20px;background:#26384f;overflow:hidden}}.bar i{{height:100%;display:block;border-radius:20px}}
+svg{{width:100%;height:auto;background:var(--panel);border-radius:12px;margin-top:12px}}.scroll{{overflow:auto;border:1px solid var(--line);border-radius:10px}}table{{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}}th,td{{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}}th{{color:var(--blue)}}.gallery{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}}figure{{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}}figure img{{display:block;width:100%;height:auto}}figcaption{{padding:9px 12px;color:var(--muted);font-size:11px}}footer{{border-top:1px solid var(--line);margin-top:42px;padding-top:15px;color:var(--muted);font-size:11px}}
+</style></head><body><main>
+<p class="eyebrow">BLACK HOLE LAB · EXPERIMENT RESULTS</p>
+<h1>{html.escape(experiment["name"].replace("_", " ").replace("-", " "))}</h1>
+<p class="muted">{html.escape(experiment.get("label", kind))} · Created {generated}</p>
+<section><h2>At a glance</h2><div class="grid">{card_html}</div></section>
+<section class="panel"><p class="eyebrow">THE TAKEAWAY</p><h2>{html.escape(heading)}</h2><p>{html.escape(conclusion)}</p>{comparison_bars}</section>
+<section><h2>What do these numbers mean?</h2><p>{html.escape(explanation)}</p></section>
+<section><h2>Learning progress</h2>{charts}</section>
+<section><h2>Scores for each test path</h2>{table}<p class="muted">Lower error means the predicted path stayed closer to the numerical reference.</p></section>
+<section><h2>Saved pictures</h2><div class="gallery">{figures}</div></section>
+<footer>Generated by Black Hole Lab. This report uses saved results only; it does not train a model or modify experiment files.</footer>
+</main></body></html>'''
 
 def generate_report(outputs_root: str | Path, experiment_id: str, output_dir: str | Path | None = None) -> Path:
     experiment = get_experiment(outputs_root, experiment_id)

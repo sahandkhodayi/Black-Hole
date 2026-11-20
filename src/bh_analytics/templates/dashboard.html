@@ -1,25 +1,47 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Black Hole Lab · Analytics</title>
-<link rel="stylesheet" href="/assets/dashboard.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Black Hole Lab — Results</title>
+  <link rel="stylesheet" href="/assets/dashboard.css">
 </head>
 <body>
-<div class="app">
-<aside>
-  <div class="brand"><div class="logo"></div><div><strong>BLACK HOLE LAB</strong><small>Research analytics console</small></div></div>
-  <div class="eyebrow">Experiment library</div>
-  <input class="search" id="search" type="search" placeholder="Filter experiments…" aria-label="Filter experiments">
-  <div class="list" id="experiment-list"><div class="empty-side">Scanning output folders…</div></div>
-  <div class="sidebar-footer">LOCAL ANALYSIS · READ-ONLY RUN DATA<br>Reports are generated on this machine.</div>
-</aside>
-<main>
-  <div class="topbar"><div><div class="eyebrow">Post-training analysis</div><h1>Experiment analytics</h1><p>Inspect training runs, compare predictions, and export reproducible reports.</p></div><div class="actions"><button class="btn" id="refresh">↻ Refresh</button><button class="btn primary" id="report" disabled>Generate HTML report ↗</button></div></div>
-  <div id="content"><div class="empty"><strong>No experiment selected</strong>Choose a run from the experiment library.</div></div>
-  <div class="footer">BLACK HOLE LAB ANALYTICS · LOCALHOST ONLY · SOURCE ARTIFACTS ARE NOT MODIFIED</div>
-</main>
-</div>
-<script src="/assets/dashboard-core.js" defer></script>
-<script src="/assets/dashboard-ui.js" defer></script>
-</body></html>
+  <div class="app">
+    <aside class="sidebar">
+      <a class="brand" href="/">
+        <span class="brand-mark">BH</span>
+        <span><strong>BLACK HOLE LAB</strong><small>Experiment results</small></span>
+      </a>
+      <div class="sidebar-heading">
+        <span>YOUR EXPERIMENTS</span>
+        <button id="refresh" class="icon-button" title="Refresh saved results" aria-label="Refresh saved results">↻</button>
+      </div>
+      <div id="experiment-list" class="experiment-list">
+        <p class="muted">Looking for saved experiments…</p>
+      </div>
+      <div class="sidebar-note">
+        <span class="status-dot"></span>
+        <span>Runs on your computer. Your results stay local.</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">BLACK HOLE LAB · RESULTS</p>
+          <h1>What did the experiment find?</h1>
+          <p class="intro">Pick an experiment on the left. This page explains the results without requiring you to open data files.</p>
+        </div>
+        <button id="report" class="primary-button" disabled>Save a shareable report <span aria-hidden="true">↗</span></button>
+      </header>
+      <div id="content" aria-live="polite">
+        <div class="loading-card">Loading your saved results…</div>
+      </div>
+      <footer>BLACK HOLE LAB <span>·</span> A plain-language view of your saved experiment results</footer>
+    </main>
+  </div>
+  <script src="/assets/dashboard-core.js" defer></script>
+  <script src="/assets/dashboard-ui.js" defer></script>
+</body>
+</html>

@@ -66,3 +66,15 @@ python -m presentation.classroom_demo --show
 
 See [presentation pipeline instructions](PRESENTATION_PIPELINE_README.md) and [the detailed workflow](docs/PRESENTATION_CODE_WORKFLOW.md). The current PPO environment predicts the next \`(u, v)\` state with teacher-guided reward; it does not control the numerical solver's step size. The MLP is supervised rather than a PINN.
 
+
+
+## Easy-to-read experiment results
+
+Open the local results page after training or evaluating a model:
+
+~~~powershell
+python -m pip install -e .
+python -m bh_analytics.dashboard --root outputs
+~~~
+
+It opens your saved MLP, PPO, and classroom comparison results in your browser. It explains which model followed the test photon paths more accurately, shows the main numbers and plots, and can save a shareable HTML report. You do **not** need to prepare CSV files by hand. See [Reading your experiment results](docs/ANALYTICS_DASHBOARD.md).

@@ -1,13 +1,24 @@
-const $=id=>document.getElementById(id);let experiments=[],selected=null,activeTab='overview';
-const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt=v=>typeof v==='number'&&Number.isFinite(v)?(Math.abs(v)>=10000?v.toLocaleString(undefined,{maximumFractionDigits:0}):v.toPrecision(5)):esc(v);
-async function api(url,options){const response=await fetch(url,options);const data=await response.json();if(!response.ok)throw new Error(data.error||response.statusText);return data}
-function typeLabel(kind){return ({mlp:'SUPERVISED MLP',rl:'REINFORCEMENT LEARNING',presentation:'MODEL COMPARISON'})[kind]||kind.toUpperCase()}
-function renderList(){const q=$('search').value.toLowerCase();const visible=experiments.filter(x=>(x.name+' '+x.kind+' '+(x.label||'')).toLowerCase().includes(q));$('experiment-list').innerHTML=visible.length?visible.map(x=>`<button class="exp ${selected?.id===x.id?'active':''}" data-id="${esc(x.id)}"><span class="exp-name">${esc(x.name)}</span><span class="exp-sub"><span>${typeLabel(x.kind)}</span><span><i class="dot"></i>${esc(x.status)}</span></span></button>`).join(''):'<div class="empty-side">No matching experiments.</div>';document.querySelectorAll('.exp').forEach(b=>b.addEventListener('click',()=>selectExperiment(b.dataset.id)))}
-async function refresh(){try{const data=await api('/api/experiments');experiments=data.experiments||[];renderList();if(selected){const found=experiments.find(x=>x.id===selected.id);if(found)await selectExperiment(found.id);else{selected=null;showEmpty()}}else if(experiments.length){await selectExperiment(experiments[0].id)}else showEmpty()}catch(e){$('content').innerHTML=`<div class="warning">Could not load experiments: ${esc(e.message)}</div>`}}
-function showEmpty(){selected=null;$('report').disabled=true;$('content').innerHTML='<div class="empty"><strong>No experiment artifacts found</strong>Expected folders: outputs/mlp_runs, outputs/rl_runs, or outputs/presentation.</div>';renderList()}
-async function selectExperiment(id){try{selected=await api('/api/experiment?id='+encodeURIComponent(id));activeTab='overview';$('report').disabled=false;renderList();renderDetail()}catch(e){$('content').innerHTML=`<div class="warning">${esc(e.message)}</div>`}}
-function metricCard(label,value,hint=''){return `<div class="card"><div class="label">${esc(label)}</div><div class="value">${fmt(value)}</div><div class="hint">${esc(hint)}</div></div>`}
-function cardsFor(d){const s=d.summary||{},c=d.config||{};if(d.kind==='mlp')return metricCard('Epochs completed',s.epochs_completed,'Training history rows')+metricCard('Best epoch',s.best_epoch,'Selected on validation')+metricCard('Best rollout NRMSE',s.best_validation_rollout_normalized_rmse,'Lower is better')+metricCard('Training time',s.elapsed_seconds==null?'—':fmt(s.elapsed_seconds)+' s','Recorded elapsed time');if(d.kind==='rl')return metricCard('Algorithm',c.algorithm||'PPO','Training method')+metricCard('Environment steps',c.timesteps_actual,'Actual timesteps')+metricCard('Test rays',s.num_rays,'Held-out trajectories')+metricCard('Mean test RMSE (u)',s.mean_rmse_u,'Lower is better');return metricCard('Test rays',s.num_test_rays,'Held-out complete rays')+metricCard('MLP mean NRMSE',s.mlp?.mean_normalized_rmse,'Lower is better')+metricCard('PPO mean NRMSE',s.ppo?.mean_normalized_rmse,'Lower is better')+metricCard('Example ray',s.example_case_id,'Shown in trajectory comparison')}
-function compareBlock(d){if(d.kind!=='presentation')return '';const s=d.comparison||{};const m=s.mlp||{},p=s.ppo||{};return `<div class="panel"><h3>Held-out model comparison</h3><div class="compare-cards"><div class="compare-card"><h4>Supervised MLP</h4><div class="big">${fmt(m.mean_normalized_rmse)}</div><p>Mean normalized RMSE</p><p>RMSE u: ${fmt(m.mean_rmse_u)} · RMSE v: ${fmt(m.mean_rmse_v)}</p></div><div class="compare-card"><h4>PPO policy</h4><div class="big">${fmt(p.mean_normalized_rmse)}</div><p>Mean normalized RMSE</p><p>RMSE u: ${fmt(p.mean_rmse_u)} · RMSE v: ${fmt(p.mean_rmse_v)}</p></div></div><div class="section-grid" style="margin-top:14px"><div><div class="sub">Inverse-radius error (u)</div><canvas class="chart small" id="compare-u"></canvas></div><div><div class="sub">Radial-derivative error (v)</div><canvas class="chart small" id="compare-v"></canvas></div></div><p class="sub" style="margin-top:12px">Both models are evaluated autoregressively on the same held-out rays. Lower values indicate lower prediction error for this dataset and task.</p></div>`}
-function tabs(){return `<div class="tabs">${[['overview','Overview'],['training','Training'],['evaluation','Evaluation'],['artifacts','Artifacts & data']].map(([id,label])=>`<button class="tab ${activeTab===id?'active':''}" data-tab="${id}">${label}</button>`).join('')}</div>`}
+const $ = (id) => document.getElementById(id);
+let experiments = [];
+let selected = null;
+
+const esc = (value) => String(value ?? "—").replace(/[&<>"']/g, (char) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+})[char]);
+
+const isNumber = (value) => typeof value === "number" && Number.isFinite(value);
+const fmt = (value, digits = 3) => isNumber(value)
+  ? value.toLocaleString(undefined, { maximumSignificantDigits: digits })
+  : "Not recorded";
+
+async function api(url, options) {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || response.statusText);
+  return data;
+}
+
+function mean(rows, key) {
+  const values = (rows || []).map((row) => row[key]).filter(isNumber);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
