@@ -77,4 +77,4 @@ uv pip install -e ".[rl]"
 python -m bh_analytics.dashboard --root outputs
 ~~~
 
-It opens the interactive classroom website. Trace photon paths from the differential equation, animate the result, watch the (u(φ)) and (v(φ)) state plots move together, and compare PPO's live validation path with DOP853. Start/stop PPO from the browser and inspect saved MLP, PPO, and paired comparison results below. No CSV files need to be prepared by hand. See [the visual classroom guide](docs/ANALYTICS_DASHBOARD.md).
+It opens the interactive classroom website. Trace photon paths from the differential equation, animate the result, watch the `u(φ)` and `v(φ)` state plots move together, and compare PPO's live validation path with DOP853. Start/stop PPO from the browser and inspect saved MLP, PPO, and paired comparison results below. No CSV files need to be prepared by hand. See [the visual classroom guide](docs/ANALYTICS_DASHBOARD.md).
