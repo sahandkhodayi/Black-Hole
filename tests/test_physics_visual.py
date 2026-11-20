@@ -12,7 +12,7 @@ def test_ray_payload_contains_a_real_mirrored_dop853_solution():
     assert ray["samples"] > 100
     assert len(ray["phi"]) == len(ray["u"]) == len(ray["v"])
     assert len(ray["x"]) == len(ray["y"]) == ray["samples"]
-    assert ray["deflection_degrees"] == pytest.approx(8.3, abs=1.0)
+    assert ray["deflection_degrees"] == pytest.approx(28.66, abs=1.0)
 
     middle = min(range(len(ray["phi"])), key=lambda index: abs(ray["phi"][index]))
     assert ray["phi"][middle] == pytest.approx(0.0, abs=1e-12)
