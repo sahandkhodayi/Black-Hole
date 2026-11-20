@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, quote, urlparse
 from bh_analytics.core import discover_experiments, experiment_index, get_experiment, resolve_artifact
 from bh_analytics.report import generate_report
 from bh_analytics.training import TrainingManager
+from bh_analytics.physics import ray_payload
 
 _TEMPLATE = Path(__file__).parent / "templates" / "dashboard.html"
 
@@ -61,6 +62,16 @@ def make_handler(outputs_root: Path, *, allow_training: bool = True):
                     self._send(200, asset_path.read_bytes(), allowed[name])
                 except OSError:
                     self._json(404, {"error": "Asset not found."})
+                return
+            if parsed.path == "/api/physics/ray":
+                try:
+                    raw_radius = query.get("r0", ["5.0"])[0]
+                    closest_approach = float(raw_radius)
+                    self._json(200, ray_payload(closest_approach))
+                except (TypeError, ValueError) as exc:
+                    self._json(400, {"error": str(exc)})
+                except RuntimeError as exc:
+                    self._json(500, {"error": str(exc)})
                 return
             if parsed.path == "/api/training/status":
                 if not allow_training:
