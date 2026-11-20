@@ -57,7 +57,7 @@ When the trainer completes a validation rollout, the website draws:
 - **Solid cyan:** DOP853 reference trajectory.
 - **Dashed pink:** the PPO model's autoregressive prediction.
 
-A gap between the curves is the prediction error. The panel also displays validation RMSE for (u) and (v), and a small reward history. Reward is a training signal; the orbit overlay and validation RMSE are more directly useful for judging how well the policy follows the trajectory.
+A gap between the curves is the prediction error. The panel also displays validation RMSE for `u` and `v`, and a small reward history. Reward is a training signal; the orbit overlay and validation RMSE are more directly useful for judging how well the policy follows the trajectory.
 
 Choose a run length and seed, then press **Start training**. Press **Stop & save** to request a safe stop. The trainer saves its current model and the best validation checkpoint.
 
