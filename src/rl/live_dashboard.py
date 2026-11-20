@@ -43,6 +43,7 @@ class LiveTrainingDashboard(BaseCallback):
         self.orbit_lines = None
         self.orbit_marker = None
         self.latest_ray = None
+        self._last_history_timesteps = None
 
     def _on_training_start(self):
         self.started = time.monotonic()
@@ -289,6 +290,7 @@ class LiveTrainingDashboard(BaseCallback):
                 episode_reward, reward_mean, policy_loss, value_loss, val_u, val_v,
                 means[0], means[1]
             ])
+        self._last_history_timesteps = self.num_timesteps
 
     def _on_step(self):
         for info in self.locals.get("infos", []):
@@ -363,4 +365,16 @@ class LiveTrainingDashboard(BaseCallback):
         self.figure = None
 
     def _on_training_end(self):
+        if self.web_monitor and self._last_history_timesteps != self.num_timesteps:
+            values = getattr(self.model.logger, "name_to_value", {})
+            latest_reward = self.reward_values[-1] if self.reward_values else None
+            val_u = self.rmse_u[-1] if self.rmse_u else None
+            val_v = self.rmse_v[-1] if self.rmse_v else None
+            self._write_history(
+                latest_reward,
+                values.get("train/policy_gradient_loss"),
+                values.get("train/value_loss"),
+                val_u,
+                val_v,
+            )
         self.save_final_snapshot()
