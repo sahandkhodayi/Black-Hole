@@ -7,7 +7,7 @@ Use this local website to start a PPO training run, watch its progress, stop and
 From the Black Hole Lab project folder, use the same Python environment you use for the project:
 
 ```powershell
-python -m pip install -e ".[rl]"
+uv pip install -e ".[rl]"
 python -m bh_analytics.dashboard --root outputs
 ```
 
