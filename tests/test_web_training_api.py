@@ -1,6 +1,6 @@
-import pytest
 from __future__ import annotations
 
+import pytest
 import json
 from http.server import ThreadingHTTPServer
 from threading import Thread
