@@ -23,35 +23,35 @@ Then open `http://127.0.0.1:8765` in the Windows browser.
 
 ## 1. Explore the differential equation
 
-The first panel runs the actual DOP853 solver. Move the **closest approach** slider, then trace the path. You can play the photon moving along the orbit; the two state plots follow the same position.
+The first panel runs the actual DOP853 solver. Move the **closest approach** slider and release it to trace a new path automatically. You can also press **Trace this path**. You can play the photon moving along the orbit; the two state plots follow the same position.
 
-The model uses normalized units with Schwarzschild radius (r_s=1) and defines inverse radius (u=1/r). Its orbit equation is:
+The model uses normalized units with Schwarzschild radius `r_s = 1` and defines inverse radius `u = 1/r`. Its orbit equation is:
 
 ```text
 d²u/dφ² + u = 3/2 u²
 ```
 
-To integrate a second-order equation as a first-order system, define (v=du/dφ):
+To integrate a second-order equation as a first-order system, define `v = du/dφ`:
 
 ```text
 u' = v
 v' = 3/2 u² - u
 ```
 
-At closest approach (r_0), the initial state is (u(0)=1/r_0), (v(0)=0). The solver advances that state in the angle (phi).
+At closest approach `r₀`, the initial state is `u(0) = 1/r₀`, `v(0) = 0`. The solver advances that state in the angle `φ`.
 
 The visual shows:
-- the event horizon at (r/r_s=1);
-- the photon sphere at (r/r_s=1.5);
+- the event horizon at `r/r_s = 1`;
+- the photon sphere at `r/r_s = 1.5`;
 - the photon orbit calculated by DOP853;
-- (u(phi)), the inverse radius;
-- (v(phi)), its derivative.
+- `u(φ)`, the inverse radius;
+- `v(φ)`, its derivative.
 
-The deflection angle shown beside the simulation is calculated from the solver's escape angle. The asymptotic ends of the path are clipped to the edge of the plot for display; the solver values (u) and (v) are not clipped.
+The deflection angle shown beside the simulation is calculated from the solver's escape angle. The asymptotic ends of the path are clipped to the edge of the plot for display; the solver values `u` and `v` are not clipped.
 
 ## 2. Compare the AI prediction
 
-The second panel can start a PPO run. The model predicts the next ((u,v)) state, and its own prediction becomes the input for the next step. The reference curve is generated from DOP853.
+The second panel can start a PPO run. The model predicts the next `(u, v)` state, and its own prediction becomes the input for the next step. The reference curve is generated from DOP853.
 
 When the trainer completes a validation rollout, the website draws:
 - **Solid cyan:** DOP853 reference trajectory.
