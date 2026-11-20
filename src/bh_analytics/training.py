@@ -71,8 +71,8 @@ class TrainingManager:
                 missing_packages.append(package)
         if missing_packages:
             raise RuntimeError(
-                "PPO training dependencies are missing. Install them with "
-                "`uv pip install -e ".[rl]"` or `python -m pip install -e ".[rl]"`."
+                'PPO training dependencies are missing. Install them with '
+                '`uv pip install -e ".[rl]"` or `python -m pip install -e ".[rl]"`.'
             )
 
     def start(self, payload: Any) -> dict[str, Any]:
