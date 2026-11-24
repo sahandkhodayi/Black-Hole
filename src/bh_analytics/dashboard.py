@@ -142,7 +142,7 @@ def make_handler(outputs_root: Path, *, allow_training: bool = True):
                     if budget_path.is_file():
                         with budget_path.open(newline="", encoding="utf-8") as handle:
                             budgets = list(csv.DictReader(handle))
-                    file_names = ["predictions.csv", "metrics_by_ray.csv", "summary.csv", "summary.json", "run_metadata.json", "model_arena_overview.png"]
+                    file_names = ["predictions.csv", "metrics_by_ray.csv", "timing.csv", "summary.csv", "summary.json", "run_metadata.json", "model_arena_overview.png"]
                     files = [f"presentation/model_arena/{name}" for name in file_names if (arena / name).is_file()]
                     if budget_path.is_file():
                         files.append(f"presentation/model_arena/{budget_path.name}")
