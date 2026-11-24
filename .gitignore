@@ -16,3 +16,6 @@ dist/
 # Local experiment logs
 outputs/*.log
 outputs/*.tmp
+
+# Rust build artifacts (recreated by Cargo; never commit)
+**/target/
