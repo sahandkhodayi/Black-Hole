@@ -55,7 +55,7 @@ def test_model_arena_exports_same_ray_predictions_and_metadata(tmp_path, monkeyp
         output_dir=output, split="test", example_case=9,
     )
     assert {row["model"] for row in summary} == {"MLP", "PPO", "PINN"}
-    for name in ("predictions.csv", "metrics_by_ray.csv", "summary.csv",
+    for name in ("predictions.csv", "metrics_by_ray.csv", "timing.csv", "summary.csv",
                  "summary.json", "run_metadata.json", "model_arena_overview.png"):
         assert (output / name).is_file()
     metadata = json.loads((output / "run_metadata.json").read_text(encoding="utf-8"))
