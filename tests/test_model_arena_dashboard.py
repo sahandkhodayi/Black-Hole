@@ -59,6 +59,11 @@ def test_observatory_home_and_assets_are_served_without_training(tmp_path):
         with urlopen(base + "/assets/observatory.js") as response:
             assert response.status == 200
             assert b"/api/physics/simulate" in response.read()
+        try:
+            urlopen(base + "/api/training/status")
+            raise AssertionError("Browser training should be disabled in presentation mode.")
+        except Exception as exc:
+            assert getattr(exc, "code", None) == 403
     finally:
         server.shutdown()
         server.server_close()
