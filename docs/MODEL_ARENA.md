@@ -31,22 +31,21 @@ python -m pytest -q
 
 ## Train saved models before the presentation
 
-Example 10-minute checkpoints:
+For a single preparation run, use the existing parallel pipeline to train the MLP and state-PPO, and select the PPO checkpoint using autoregressive validation error:
 
 ~~~powershell
-python -m presentation.train_mlp --seconds 600 --output-dir outputs/mlp_runs/class_mlp_10m
+python -m presentation.run_parallel --run-name class_presentation --rl-seconds 600 --mlp-epochs 300
 python -m presentation.train_pinn --seconds 600 --output-dir outputs/pinn_runs/class_pinn_10m
-python -m rl.train --seconds 600 --run-name class_ppo_10m
 python -m rl.train_adaptive --seconds 600 --run-name class_adaptive_10m
 ~~~
 
-Use the validation-selected PPO checkpoint when it exists; otherwise the evaluation command can load the saved final checkpoint. Example:
+The selected state-PPO checkpoint is saved at outputs/presentation/class_presentation/selected_ppo_model.zip. The adaptive policy's best checkpoint is normally at outputs/adaptive_rl_runs/class_adaptive_10m/best/best_model.zip; if that file was not produced before the time budget ended, use final_model.zip.
 
 ~~~powershell
-python -m presentation.evaluate_arena --mlp outputs/mlp_runs/class_mlp_10m/best_model.pt --ppo outputs/rl_runs/class_ppo_10m/best/best_model.zip --pinn outputs/pinn_runs/class_pinn_10m/best_model.pt --adaptive-ppo outputs/adaptive_rl_runs/class_adaptive_10m/best/best_model.zip --output outputs/presentation/model_arena
+python -m presentation.evaluate_arena --mlp outputs/mlp_runs/dynamics_architecture_sweep_relu_w128_d3/best_model.pt --ppo outputs/presentation/class_presentation/selected_ppo_model.zip --pinn outputs/pinn_runs/class_pinn_10m/best_model.pt --adaptive-ppo outputs/adaptive_rl_runs/class_adaptive_10m/best/best_model.zip --output outputs/presentation/model_arena
 ~~~
 
-If an RL best_model.zip does not exist because the time budget ended before the first evaluation callback, use that run's final_model.zip instead.
+If the adaptive PPO best_model.zip does not exist, substitute its final_model.zip. The evaluator writes predictions.csv, metrics_by_ray.csv, summary.csv, summary.json, run_metadata.json, and an overview plot.
 
 Start the local results dashboard:
 
