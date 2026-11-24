@@ -3,78 +3,79 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Black Hole Lab — Results</title>
-  <link rel="stylesheet" href="/assets/dashboard.css">
+  <meta name="theme-color" content="#05070d">
+  <meta name="description" content="Explore Schwarzschild photon trajectories and compare numerical physics with machine-learning models.">
+  <title>Black Hole Lab — Observatory</title>
+  <link rel="stylesheet" href="/assets/observatory.css">
+  <script src="/assets/observatory.js" defer></script>
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar">
-      <a class="brand" href="/">
-        <span class="brand-mark">BH</span>
-        <span><strong>BLACK HOLE LAB</strong><small>Experiment results</small></span>
-      </a>
-      <div class="sidebar-heading">
-        <span>YOUR EXPERIMENTS</span>
-        <button id="refresh" class="icon-button" title="Refresh saved results" aria-label="Refresh saved results">↻</button>
-      </div>
-      <div id="experiment-list" class="experiment-list">
-        <p class="muted">Looking for saved experiments…</p>
-      </div>
-      <div class="sidebar-note">
-        <span class="status-dot"></span>
-        <span>Runs on your computer. Your results stay local.</span>
-      </div>
-    </aside>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Black Hole Lab home"><span class="brand-mark">BH</span><span><b>BLACK HOLE LAB</b><small>PHOTON DYNAMICS OBSERVATORY</small></span></a>
+      <nav aria-label="Main navigation"><a href="#observatory">Observatory</a><a href="/arena">Experiment</a><a href="#findings">Findings</a><a href="#method">Method</a></nav>
+      <span class="research-tag"><i></i> RESEARCH MODE</span>
+    </header>
 
-    <main class="main">
-      <header class="page-header">
-        <div>
-          <p class="eyebrow">BLACK HOLE LAB · RESULTS</p>
-          <h1>What did the experiment find?</h1>
-          <p class="intro">Pick an experiment on the left. This page explains the results without requiring you to open data files.</p>
+    <main>
+      <section class="hero" id="observatory">
+        <div class="hero-copy">
+          <p class="eyebrow">A NUMERICAL JOURNEY THROUGH CURVED SPACETIME</p>
+          <h1>When light passes<br>the edge of <em>forever.</em></h1>
+          <p class="hero-lede">Trace a photon around a Schwarzschild black hole. Then put numerical physics and learned models side by side to see what each one gets right.</p>
+          <div class="hero-actions"><a class="button button-primary" href="#photon-lab">Trace a photon <span>↘</span></a><a class="button button-quiet" href="/arena">Enter the experiment <span>↗</span></a></div>
+          <div class="hero-footnote"><span class="live-dot"></span> LOCAL SIMULATION <span class="separator">/</span> NORMALIZED UNITS · rₛ = 1</div>
         </div>
-        <div class="header-actions">
-          <a class="primary-button" href="/physics">Explore photon physics <span aria-hidden="true">↗</span></a>
-          <a class="primary-button" href="/arena">Open Model Arena <span aria-hidden="true">↗</span></a>
-          <button id="report" class="primary-button" disabled>Save a shareable report <span aria-hidden="true">↗</span></button>
+        <div class="space-scene" aria-label="Illustration of a black hole bending a photon path">
+          <div class="starfield"></div><div class="lens lens-one"></div><div class="lens lens-two"></div>
+          <div class="accretion accretion-back"></div><div class="photon-ring"></div><div class="horizon"></div><div class="accretion accretion-front"></div>
+          <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+          <div class="scene-label label-horizon"><i></i> EVENT HORIZON <b>r = 1</b></div>
+          <div class="scene-label label-photon"><i></i> PHOTON SPHERE <b>r = 1.5</b></div>
+          <div class="scene-caption">SCHWARZSCHILD SPACETIME <span>01 / 03</span></div>
         </div>
-      </header>
-      <section class="training-launcher" aria-labelledby="training-title">
-        <div class="training-heading">
-          <div class="training-copy">
-            <p class="eyebrow">LIVE TRAINING</p>
-            <h2 id="training-title">Train a PPO agent</h2>
-            <p>Start a training run here. The model trains in the backend, while this page refreshes its graphs once every 60 seconds.</p>
-          </div>
-          <div class="training-controls">
-            <label class="training-field">Training time
-              <select id="training-minutes">
-                <option value="1">1 minute</option>
-                <option value="5" selected>5 minutes</option>
-                <option value="10">10 minutes</option>
-                <option value="30">30 minutes</option>
-              </select>
-            </label>
-            <label class="training-field">Random seed
-              <input id="training-seed" type="number" min="0" max="2147483647" value="42">
-            </label>
-            <button id="start-training" class="primary-button" type="button">Start training</button>
-            <button id="stop-training" class="danger-button" type="button" hidden>Stop &amp; save</button>
-          </div>
-        </div>
-        <div class="training-status-row">
-          <span id="training-status-pill" class="training-status-pill">READY</span>
-          <span id="training-status-message">No training run is active. Your saved results are below.</span>
-        </div>
-        <div id="training-live" aria-live="polite"></div>
       </section>
-      <div id="content" aria-live="polite">
-        <div class="loading-card">Loading your saved results…</div>
-      </div>
-      <footer>BLACK HOLE LAB <span>·</span> A plain-language view of your saved experiment results</footer>
+
+      <section class="equation-strip" aria-label="Schwarzschild photon orbit equation">
+        <div><span class="eyebrow">THE GEODESIC</span><strong>u″ + u = <span>3</span>/<span>2</span>u²</strong></div>
+        <p>u = 1/r <span>·</span> φ is the integration variable <span>·</span> DOP853 numerical reference</p>
+      </section>
+
+      <section class="photon-lab" id="photon-lab">
+        <div class="section-intro"><p class="eyebrow">01 — INTERACTIVE PHYSICS</p><h2>One photon.<br><em>One encounter.</em></h2><p>Change how close the photon passes to the black hole. The geodesic is integrated by the project's DOP853 solver.</p></div>
+        <div class="lab-console">
+          <div class="console-head"><div><span class="console-kicker">LIVE GEODESIC SOLVER</span><h3>Trajectory console</h3></div><span id="solver-status" class="status"><i></i> READY</span></div>
+          <canvas id="photon-canvas" aria-label="Numerically integrated photon trajectory around a Schwarzschild black hole"></canvas>
+          <div class="console-controls">
+            <label for="closest">Closest approach <output id="closest-value">5.00 rₛ</output></label>
+            <input id="closest" type="range" min="1.8" max="15" step="0.05" value="5">
+            <div class="control-bottom"><div class="presets"><button type="button" data-radius="2">Strong</button><button type="button" data-radius="3">Moderate</button><button type="button" data-radius="5" class="selected">Classic</button><button type="button" data-radius="10">Weak</button></div><button type="button" id="simulate" class="run-button">Integrate geodesic ↗</button></div>
+            <p id="solver-error" role="alert"></p>
+          </div>
+          <div class="readouts"><div><span>DEFLECTION ANGLE</span><b id="deflection">—</b></div><div><span>CLOSEST RADIUS</span><b id="radius-readout">5.00 rₛ</b></div><div><span>FUNCTION EVALUATIONS</span><b id="nfev">—</b></div><div><span>TRAJECTORY SAMPLES</span><b id="samples">—</b></div></div>
+        </div>
+      </section>
+
+      <section class="chapter-grid">
+        <article><span>01 / PHYSICS</span><h3>Curved paths</h3><p>A photon follows a null geodesic. In Schwarzschild spacetime, gravity changes the geometry that defines its path.</p></article>
+        <article><span>02 / NUMERICS</span><h3>Adaptive integration</h3><p>DOP853 adjusts its integration steps to control numerical error while solving the coupled orbit equations.</p></article>
+        <article><span>03 / LEARNING</span><h3>Learned dynamics</h3><p>MLP, PINN and reinforcement-learning approaches are evaluated against the same numerical reference trajectories.</p></article>
+      </section>
+
+      <section class="experiment-section" id="experiment">
+        <div class="section-intro"><p class="eyebrow">02 — THE EXPERIMENT</p><h2>Can a model<br><em>follow the light?</em></h2><p>One held-out photon trajectory becomes the test bench. Switch between learned approaches and inspect their predictions against DOP853.</p><a class="text-link" href="/arena">Open the Model Arena <span>↗</span></a></div>
+        <div class="experiment-visual"><div class="mini-orbit"><span class="mini-hole"></span><i class="mini-path path-reference"></i><i class="mini-path path-mlp"></i><i class="mini-path path-pinn"></i><i class="mini-path path-ppo"></i></div><div class="model-key"><span><i class="ref"></i>DOP853 reference</span><span><i class="mlp"></i>MLP</span><span><i class="pinn"></i>PINN</span><span><i class="ppo"></i>PPO / Adaptive RL</span></div><p>PRECOMPUTED PREDICTIONS · NO TRAINING DURING PRESENTATION</p></div>
+      </section>
+
+      <section class="findings-section" id="findings">
+        <div class="section-heading"><div><p class="eyebrow">03 — EXPERIMENTAL FINDINGS</p><h2>What did the models learn?</h2><p>Numbers below are loaded from your saved held-out evaluation, not generated for this page.</p></div><a class="text-link" href="/arena">Inspect all results ↗</a></div>
+        <div id="findings-grid" class="findings-grid"><div class="finding-card loading">Loading saved evaluation…</div></div>
+        <p id="findings-note" class="data-note">Waiting for the saved Model Arena export.</p>
+      </section>
+
+      <section class="method-section" id="method"><div><p class="eyebrow">04 — METHOD & REPRODUCIBILITY</p><h2>Physics first.<br><em>Evidence always.</em></h2></div><div class="method-copy"><p>The Schwarzschild geodesic solver supplies a numerical reference. Models are trained before the demonstration and evaluated on held-out photon trajectories. Accuracy and computational cost are reported separately.</p><div class="method-equation">u(0) = 1/r₀ <span>·</span> u′(0) = 0 <span>·</span> rₛ = 1</div><a class="text-link" href="/arena">Review metrics, predictions & files ↗</a></div></section>
     </main>
+    <footer><a href="/">BLACK HOLE LAB</a><span>NUMERICAL PHYSICS × MACHINE LEARNING</span><span>SCHWARZSCHILD · rₛ = 1</span></footer>
   </div>
-  <script src="/assets/dashboard-core.js" defer></script>
-  <script src="/assets/dashboard-ui.js" defer></script>
 </body>
 </html>

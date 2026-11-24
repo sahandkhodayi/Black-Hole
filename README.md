@@ -48,9 +48,15 @@ The target is sequential generation of escaping photon trajectories. The referen
 The RL environment, PPO training script, evaluation script, and experiment comparison utility are included on the default branch. They are a teacher-guided tracking baseline, not a claim of autonomous physics discovery.
 
 
-## Live RL research dashboard
+## Black Hole Observatory
 
-Start a PPO run from the local browser dashboard, watch reward/loss/validation-error graphs refresh once per minute, and stop safely while saving the model. The optional Matplotlib research console is also available from the CLI: [Live training dashboard guide](docs/LIVE_TRAINING_DASHBOARD.md).
+The local presentation interface is a science-first observatory, not an experiment manager. Its home page combines an immersive Schwarzschild scene with an interactive photon geodesic console backed by the project's DOP853 solver. The Model Arena displays saved MLP, PINN, PPO, and adaptive-RL evaluations. Browser-triggered training is disabled in presentation mode; train models from the CLI before the presentation.
+
+~~~powershell
+python -m bh_analytics.dashboard --root outputs
+~~~
+
+Open `http://127.0.0.1:8765/` for the Observatory, `/physics` for the dedicated Physics Explorer, and `/arena` for precomputed model comparisons. The older live-training guide remains available as historical research tooling, but it is not part of the presentation interface.
 
 ## Parallel MLP + PPO classroom experiment
 
