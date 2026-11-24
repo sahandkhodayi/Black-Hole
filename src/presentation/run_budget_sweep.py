@@ -96,6 +96,7 @@ def main():
             selected = select_ppo_checkpoint(
                 candidates, args.dataset, args.splits, run_root / "ppo_checkpoint_selection.json")
             selected_copy = run_root / "ppo" / "selected_model.zip"
+            selected_copy.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(selected, selected_copy)
             checkpoints["PPO"] = selected_copy
         if "Adaptive RL" in args.models:
