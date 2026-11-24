@@ -98,6 +98,8 @@ def main() -> None:
     parser.add_argument("--splits", default="data/split_manifest_v2.json")
     parser.add_argument("--output-dir", default="outputs/mlp_runs/dynamics_architecture_sweep_relu_w128_d3")
     parser.add_argument("--epochs", type=int, default=300)
+    parser.add_argument("--seconds", type=float, default=None,
+                        help="Optional wall-clock training budget; saves the best checkpoint on exit.")
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-6)
@@ -111,6 +113,8 @@ def main() -> None:
 
     if args.epochs < 1 or args.batch_size < 1 or args.patience < 1:
         parser.error("epochs, batch-size, and patience must be positive")
+    if args.seconds is not None and args.seconds <= 0:
+        parser.error("seconds must be positive when supplied")
     if args.width < 1 or args.depth < 1 or args.learning_rate <= 0:
         parser.error("width, depth, and learning-rate must be positive")
     if args.device == "cuda" and not torch.cuda.is_available():
@@ -164,6 +168,7 @@ def main() -> None:
         "train_transitions": int(len(train_x)),
         "validation_transitions": int(len(val_x)),
         "epochs_requested": args.epochs,
+        "seconds_requested": args.seconds,
         "batch_size": args.batch_size,
         "learning_rate": args.learning_rate,
         "weight_decay": args.weight_decay,
@@ -245,6 +250,9 @@ def main() -> None:
                 )
             if stale_epochs >= args.patience:
                 print(f"[MLP] early stopping at epoch {epoch}; best epoch={best_epoch}", flush=True)
+                break
+            if args.seconds is not None and time.perf_counter() - started >= args.seconds:
+                print(f"[MLP] wall-clock budget reached at epoch {epoch}; saving best checkpoint.", flush=True)
                 break
     except KeyboardInterrupt:
         interrupted = True
