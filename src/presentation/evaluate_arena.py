@@ -213,6 +213,10 @@ def run_arena(*, dataset_path, splits_path, mlp_path, ppo_path, pinn_path,
 
     _write_csv(output / "predictions.csv", prediction_rows)
     _write_csv(output / "metrics_by_ray.csv", metric_rows)
+    timing_rows = [{key: row.get(key) for key in (
+        "model", "case_id", "inference_seconds", "wall_seconds_including_integration",
+        "integration_steps", "function_evaluations") } for row in metric_rows]
+    _write_csv(output / "timing.csv", timing_rows)
     summary_rows = []
     for name in dict.fromkeys(row["model"] for row in metric_rows):
         rows = [row for row in metric_rows if row["model"] == name]
