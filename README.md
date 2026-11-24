@@ -94,3 +94,9 @@ python -m bh_analytics.dashboard --root outputs
 Choose **Explore photon physics** from the results dashboard, or open [http://127.0.0.1:8765/physics](http://127.0.0.1:8765/physics) directly. The simulation runs locally through the same `lab.geodesics.simulate_ray` physics implementation used by the Python project. It does not require a trained ML checkpoint.
 
 The interactive page uses normalized units with Schwarzschild radius `r_s = 1`. The event horizon is at `r = 1` and the photon sphere is at `r = 1.5`. The explorer currently accepts scattering closest-approach values from `1.8` to `15` Schwarzschild radii.
+
+## Precomputed Model Arena: MLP, PINN, PPO, and Adaptive RL
+
+The local dashboard now includes a Model Arena at /arena. Train the MLP, physics-informed network, state-prediction PPO, and adaptive-step PPO before the presentation; export the held-out comparison to CSV; then load the saved results in the browser. Opening the Model Arena never starts training.
+
+See [Model Arena instructions](docs/MODEL_ARENA.md) for the PINN equation and loss, adaptive RK4 environment, fair evaluation protocol, saved CSV files, measured 1-minute / 10-minute / 1-hour budgets, and clearly labelled 10-hour / 10-day extrapolations.
