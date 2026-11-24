@@ -45,7 +45,7 @@ The selected state-PPO checkpoint is saved at outputs/presentation/class_present
 python -m presentation.evaluate_arena --mlp outputs/mlp_runs/dynamics_architecture_sweep_relu_w128_d3/best_model.pt --ppo outputs/presentation/class_presentation/selected_ppo_model.zip --pinn outputs/pinn_runs/class_pinn_10m/best_model.pt --adaptive-ppo outputs/adaptive_rl_runs/class_adaptive_10m/best/best_model.zip --output outputs/presentation/model_arena
 ~~~
 
-If the adaptive PPO best_model.zip does not exist, substitute its final_model.zip. The evaluator writes predictions.csv, metrics_by_ray.csv, summary.csv, summary.json, run_metadata.json, and an overview plot.
+If the adaptive PPO best_model.zip does not exist, substitute its final_model.zip. The evaluator writes predictions.csv, metrics_by_ray.csv, timing.csv, summary.csv, summary.json, run_metadata.json, and an overview plot.
 
 Start the local results dashboard:
 
@@ -53,7 +53,7 @@ Start the local results dashboard:
 python -m bh_analytics.dashboard --root outputs
 ~~~
 
-Open http://127.0.0.1:8765/arena. It reads predictions.csv, metrics_by_ray.csv, summary.json, run_metadata.json, and (if generated) budget_projection.csv.
+Open http://127.0.0.1:8765/arena. It reads predictions.csv, metrics_by_ray.csv, timing.csv, summary.json, run_metadata.json, and (if generated) budget_projection.csv.
 
 ## Training-budget experiment
 
