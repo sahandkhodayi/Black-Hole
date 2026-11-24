@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const palette = {"DOP853":"#e8edf5","MLP":"#36b8df","PINN":"#b49af5","PPO":"#efa45d","Adaptive RL":"#65c9ae"};
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const num = (v,d=4) => Number.isFinite(Number(v)) ? Number(v).toPrecision(d) : "—";
+const num = (v,d=4) => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v)) ? Number(v).toPrecision(d) : "—";
 let payload = null;
 function ctx(id){const c=$(id),g=c.getContext("2d");return {c,g,w:c.width,h:c.height};}
 function line(g,points,color,width=3,dash=[]){if(!points.length)return;g.beginPath();g.setLineDash(dash);g.strokeStyle=color;g.lineWidth=width;points.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();g.setLineDash([]);}
