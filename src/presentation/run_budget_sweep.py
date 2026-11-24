@@ -80,7 +80,20 @@ def main():
                  "--splits", args.splits, "--seconds", seconds,
                  "--seed", args.seed, "--run-name", ppo_name,
                  "--output-root", "outputs", "--device", args.device])
-            checkpoints["PPO"] = checkpoint_or_final(Path("outputs/rl_runs") / ppo_name, "PPO")
+            ppo_dir = Path("outputs/rl_runs") / ppo_name
+            candidates = {}
+            if (ppo_dir / "best" / "best_model.zip").is_file():
+                candidates["validation_reward_best"] = ppo_dir / "best" / "best_model.zip"
+            if (ppo_dir / "final_model.zip").is_file():
+                candidates["final_iteration"] = ppo_dir / "final_model.zip"
+            if not candidates:
+                raise FileNotFoundError(f"PPO training produced no checkpoint in {ppo_dir}")
+            from presentation.evaluate_pair import select_ppo_checkpoint
+            selected = select_ppo_checkpoint(
+                candidates, args.dataset, args.splits, run_root / "ppo_checkpoint_selection.json")
+            selected_copy = run_root / "ppo" / "selected_model.zip"
+            shutil.copy2(selected, selected_copy)
+            checkpoints["PPO"] = selected_copy
         if "Adaptive RL" in args.models:
             adaptive_name = f"budget_{label}_adaptive"
             run([sys.executable, "-m", "rl.train_adaptive", "--dataset", args.dataset,
