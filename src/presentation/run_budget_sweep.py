@@ -67,6 +67,7 @@ def main():
             run([sys.executable, "-m", "presentation.train_mlp",
                  "--dataset", args.dataset, "--splits", args.splits,
                  "--output-dir", mlp_dir, "--seconds", seconds,
+                 "--epochs", 1000000, "--patience", 1000000,
                  "--seed", args.seed, "--device", args.device])
             checkpoints["MLP"] = mlp_dir / "best_model.pt"
         if "PINN" in args.models:
@@ -74,6 +75,7 @@ def main():
             run([sys.executable, "-m", "presentation.train_pinn",
                  "--dataset", args.dataset, "--splits", args.splits,
                  "--output-dir", pinn_dir, "--seconds", seconds,
+                 "--steps", 100000000,
                  "--seed", args.seed, "--device", args.device])
             checkpoints["PINN"] = pinn_dir / "best_model.pt"
         if "PPO" in args.models:
