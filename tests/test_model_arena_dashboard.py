@@ -26,7 +26,11 @@ def test_model_arena_routes_serve_saved_files_without_training(tmp_path):
     try:
         with urlopen(base + "/arena") as response:
             assert response.status == 200
-            assert b"MODEL ARENA" in response.read()
+            page = response.read()
+            assert b"THE EXPERIMENT" in page
+            assert b"Which model follows the photon?" in page
+            assert b"SAVED RESULTS" in page
+            assert b"NO LIVE TRAINING" in page
         with urlopen(base + "/assets/model-arena.js") as response:
             assert response.status == 200
             assert b"saved results only" in response.read()
