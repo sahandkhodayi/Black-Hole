@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -52,6 +53,7 @@ def main():
     root = Path(args.output_root).resolve()
     root.mkdir(parents=True, exist_ok=True)
     measured = []
+    latest_checkpoints = {}
 
     for seconds in args.budgets:
         label = f"{seconds}s"
@@ -87,6 +89,7 @@ def main():
                  "--output-root", "outputs", "--device", args.device])
             checkpoints["Adaptive RL"] = checkpoint_or_final(
                 Path("outputs/adaptive_rl_runs") / adaptive_name, "Adaptive RL")
+        latest_checkpoints = dict(checkpoints)
 
         required = {"MLP", "PINN", "PPO"}
         if not required.issubset(checkpoints):
@@ -150,6 +153,19 @@ def main():
         writer = csv.DictWriter(handle, fieldnames=list(projections[0]))
         writer.writeheader()
         writer.writerows(projections)
+    arena_root = Path("outputs/presentation/model_arena")
+    arena_root.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(root / "budget_measurements.csv", arena_root / "budget_measurements.csv")
+    shutil.copy2(root / "budget_projection.csv", arena_root / "budget_projection.csv")
+    if {"MLP", "PINN", "PPO"}.issubset(latest_checkpoints):
+        command = [sys.executable, "-m", "presentation.evaluate_arena",
+                   "--dataset", args.dataset, "--splits", args.splits,
+                   "--mlp", latest_checkpoints["MLP"], "--ppo", latest_checkpoints["PPO"],
+                   "--pinn", latest_checkpoints["PINN"], "--output", arena_root,
+                   "--split", "test", "--device", "cpu"]
+        if "Adaptive RL" in latest_checkpoints:
+            command.extend(["--adaptive-ppo", latest_checkpoints["Adaptive RL"]])
+        run(command)
     print(f"\nSaved measured data: {root / 'budget_measurements.csv'}")
     print(f"Saved clearly labelled extrapolations: {root / 'budget_projection.csv'}")
 
