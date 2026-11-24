@@ -63,7 +63,7 @@ The full budget sweep trains each selected approach for 1 minute, 10 minutes, an
 python -m presentation.run_budget_sweep
 ~~~
 
-This default command takes roughly 4 hours 44 minutes of requested training time for four methods (plus evaluation and any epoch/callback overhead). It is an offline preparation task, not a live presentation feature. To run only one budget, use --budgets 60; to select methods, use --models MLP PINN PPO "Adaptive RL".
+This default command takes roughly 4 hours 44 minutes of requested training time for four methods (plus evaluation and any epoch/callback overhead). It is an offline preparation task, not a live presentation feature. To run only one budget, use --budgets 60. The sweep requires MLP, PINN, and PPO; adaptive RL is optional and can be omitted with --models MLP PINN PPO.
 
 The script writes measured observations to budget_measurements.csv. The 10-hour and 10-day entries in budget_projection.csv are generated only when at least two measured checkpoints exist for a model. They are log-log extrapolations, clearly marked projected, and are not training runs or empirical results. If there is insufficient evidence, the projection is left blank.
 
