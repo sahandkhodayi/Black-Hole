@@ -4,17 +4,50 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import math
 import mimetypes
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
+import numpy as np
+
+from lab.geodesics import simulate_ray
 from bh_analytics.core import discover_experiments, experiment_index, get_experiment, resolve_artifact
 from bh_analytics.report import generate_report
 from bh_analytics.training import TrainingManager
 
 _TEMPLATE = Path(__file__).parent / "templates" / "dashboard.html"
+_PHYSICS_TEMPLATE = Path(__file__).parent / "templates" / "physics_explorer.html"
+
+
+def _simulate_photon_payload(closest_approach: object) -> dict:
+    """Run a bounded, validated Schwarzschild scattering simulation for the explorer."""
+    try:
+        radius0 = float(closest_approach)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("closest_approach must be a number.") from exc
+    if not math.isfinite(radius0) or not 1.8 <= radius0 <= 15.0:
+        raise ValueError("closest_approach must be between 1.8 and 15 Schwarzschild radii.")
+
+    ray = simulate_ray(closest_approach=radius0, max_angle=40.0, max_step=0.02)
+    radius = ray.radius
+    visible = np.isfinite(radius) & (radius >= 1.0) & (radius <= 24.0)
+    phi = ray.phi[visible]
+    visible_radius = radius[visible]
+    return {
+        "closest_approach": radius0,
+        "phi": phi.tolist(),
+        "u": ray.u[visible].tolist(),
+        "radius": visible_radius.tolist(),
+        "x": (visible_radius * np.cos(phi)).tolist(),
+        "y": (visible_radius * np.sin(phi)).tolist(),
+        "escaped": ray.escaped,
+        "escape_angle": ray.escape_angle,
+        "deflection_degrees": ray.deflection_degrees,
+        "nfev": ray.nfev,
+    }
 
 
 def make_handler(outputs_root: Path, *, allow_training: bool = True):
@@ -22,7 +55,7 @@ def make_handler(outputs_root: Path, *, allow_training: bool = True):
     training = TrainingManager(root)
 
     class DashboardHandler(BaseHTTPRequestHandler):
-        server_version = "BlackHoleLabAnalytics/0.1"
+        server_version = "BlackHoleLabAnalytics/0.2"
 
         def _send(self, status: int, payload: bytes, content_type: str) -> None:
             self.send_response(status)
@@ -46,12 +79,20 @@ def make_handler(outputs_root: Path, *, allow_training: bool = True):
                 except OSError:
                     self._json(500, {"error": "Dashboard template is missing."})
                 return
+            if parsed.path == "/physics":
+                try:
+                    self._send(200, _PHYSICS_TEMPLATE.read_bytes(), "text/html; charset=utf-8")
+                except OSError:
+                    self._json(500, {"error": "Physics Explorer template is missing."})
+                return
             if parsed.path.startswith("/assets/"):
                 name = parsed.path.rsplit("/", 1)[-1]
                 allowed = {
                     "dashboard.css": "text/css; charset=utf-8",
                     "dashboard-core.js": "text/javascript; charset=utf-8",
                     "dashboard-ui.js": "text/javascript; charset=utf-8",
+                    "physics-explorer.css": "text/css; charset=utf-8",
+                    "physics-explorer.js": "text/javascript; charset=utf-8",
                 }
                 if name not in allowed:
                     self._json(404, {"error": "Asset not found."})
@@ -114,6 +155,25 @@ def make_handler(outputs_root: Path, *, allow_training: bool = True):
 
         def do_POST(self):  # noqa: N802 - BaseHTTPRequestHandler API
             parsed_path = urlparse(self.path).path
+            if parsed_path == "/api/physics/simulate":
+                origin = self.headers.get("Origin")
+                if origin and urlparse(origin).netloc != self.headers.get("Host"):
+                    self._json(403, {"error": "Cross-origin simulation requests are not allowed."})
+                    return
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                    if length <= 0 or length > 8_192:
+                        raise ValueError("Invalid request size.")
+                    body = json.loads(self.rfile.read(length).decode("utf-8"))
+                    if not isinstance(body, dict):
+                        raise ValueError("The request body must be a JSON object.")
+                    self._json(200, _simulate_photon_payload(body.get("closest_approach", 5.0)))
+                except (ValueError, UnicodeError, json.JSONDecodeError) as exc:
+                    self._json(400, {"error": str(exc)})
+                except (RuntimeError, FloatingPointError) as exc:
+                    self._json(500, {"error": f"Numerical integration failed: {exc}"})
+                return
+
             if parsed_path in {"/api/training/start", "/api/training/stop"}:
                 if not allow_training:
                     self._json(403, {"error": "Browser training is disabled when the server is exposed beyond this computer."})
@@ -191,7 +251,7 @@ def main() -> None:
     print(f"Reading experiments from: {root}")
     print("Browser training: enabled (localhost only)" if training_allowed
           else "Browser training: disabled for non-localhost bindings")
-    print("Press Ctrl+C to stop the local dashboard.")
+    print("Press Ctrl+C to stop the dashboard.")
     if not args.no_browser and args.host in {"127.0.0.1", "localhost"}:
         webbrowser.open(url)
     try:

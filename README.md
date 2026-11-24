@@ -78,3 +78,19 @@ python -m bh_analytics.dashboard --root outputs
 ~~~
 
 It opens your saved MLP, PPO, and classroom comparison results in your browser. You can also start a PPO training run, see reward/loss/validation graphs refresh once per minute, and stop safely to save the model. The page explains saved results and can create a shareable HTML report. You do **not** need to prepare CSV files by hand. MLP and paired MLP-vs-PPO training remain available through the presentation commands above. See [Reading your experiment results](docs/ANALYTICS_DASHBOARD.md).
+
+
+## Interactive Schwarzschild Physics Explorer
+
+The local analytics dashboard includes a browser-based physics demonstration. It lets you vary a photon's closest-approach radius, solve the Schwarzschild orbit equation with the project's DOP853 implementation, and inspect the resulting path, deflection angle, solver evaluations, event horizon, and photon sphere.
+
+Install the development dependencies and start the local dashboard:
+
+~~~powershell
+python -m pip install -e ".[dev]"
+python -m bh_analytics.dashboard --root outputs
+~~~
+
+Choose **Explore photon physics** from the results dashboard, or open [http://127.0.0.1:8765/physics](http://127.0.0.1:8765/physics) directly. The simulation runs locally through the same `lab.geodesics.simulate_ray` physics implementation used by the Python project. It does not require a trained ML checkpoint.
+
+The interactive page uses normalized units with Schwarzschild radius `r_s = 1`. The event horizon is at `r = 1` and the photon sphere is at `r = 1.5`. The explorer currently accepts scattering closest-approach values from `1.8` to `15` Schwarzschild radii.

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d18">
+  <title>Physics Explorer · Black Hole Lab</title>
+  <link rel="stylesheet" href="/assets/physics-explorer.css">
+  <script src="/assets/physics-explorer.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="/"><span class="brand-mark">BH</span><span><b>BLACK HOLE LAB</b><small>Numerical relativity · Learning systems</small></span></a>
+      <a class="back-link" href="/">← Experiment dashboard</a>
+    </header>
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">INTERACTIVE PHYSICS · SCHWARZSCHILD SPACETIME</p>
+          <h1>Follow a photon<br><em>through curved spacetime.</em></h1>
+          <p class="lede">Change the closest approach and watch a numerical solution of the photon geodesic bend around a non-rotating black hole.</p>
+        </div>
+        <div class="hero-equation">
+          <span class="equation-label">THE ORBIT EQUATION</span>
+          <div class="equation">u′′ + u = <span>3</span>/<span>2</span>u²</div>
+          <div class="equation-note">u = 1/r &nbsp;·&nbsp; φ is the independent variable</div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <article class="visual-card">
+          <div class="card-heading">
+            <div><p class="eyebrow">LIVE GEODESIC</p><h2>Photon trajectory</h2></div>
+            <span id="solver-status" class="status"><i></i> DOP853 READY</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="orbit" aria-label="Top-down plot of the photon trajectory around a black hole"></canvas>
+            <div class="plot-legend">
+              <span><i class="legend-photon"></i> Photon path</span>
+              <span><i class="legend-horizon"></i> Event horizon</span>
+              <span><i class="legend-sphere"></i> Photon sphere</span>
+            </div>
+          </div>
+          <div class="plot-footer"><span>Distance is measured in Schwarzschild radii (rₛ).</span><span id="point-count">— samples</span></div>
+        </article>
+
+        <aside class="control-card">
+          <p class="eyebrow">INITIAL CONDITIONS</p>
+          <h2>Change the encounter</h2>
+          <label class="control-label" for="closest">Closest approach <output id="closest-value">5.00 rₛ</output></label>
+          <input id="closest" type="range" min="1.80" max="15" step="0.05" value="5">
+          <div class="range-ends"><span>Near photon sphere</span><span>Weak bending</span></div>
+          <div class="preset-row">
+            <button type="button" data-radius="2">Strong</button>
+            <button type="button" data-radius="3">Moderate</button>
+            <button type="button" data-radius="5" class="selected">Classic</button>
+            <button type="button" data-radius="10">Weak</button>
+          </div>
+          <button id="simulate" class="simulate-button" type="button"><span>↻</span> Run simulation</button>
+          <p id="error" class="error" role="alert"></p>
+          <div class="metrics">
+            <div class="metric"><span>Deflection angle</span><b id="deflection">—</b></div>
+            <div class="metric"><span>Closest radius</span><b id="radius-metric">5.00 rₛ</b></div>
+            <div class="metric"><span>Solver evaluations</span><b id="nfev">—</b></div>
+            <div class="metric"><span>Outcome</span><b id="outcome">—</b></div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="explain-grid">
+        <article class="explain-card">
+          <span class="step">01 / PHYSICS</span>
+          <h3>Why does the path bend?</h3>
+          <p>In the Schwarzschild spacetime, a photon follows a null geodesic. With u = 1/r and the angle φ as the independent variable, the orbit equation becomes a second-order ordinary differential equation.</p>
+          <div class="mini-equation">u′ = v &nbsp; · &nbsp; v′ = 3u²/2 − u</div>
+        </article>
+        <article class="explain-card">
+          <span class="step">02 / NUMERICS</span>
+          <h3>How is it solved?</h3>
+          <p>DOP853 is an adaptive, explicit Runge–Kutta method. It chooses internal step sizes to control local numerical error while integrating the coupled first-order system.</p>
+          <div class="mini-equation">Initial state: u(0) = 1/r₀, v(0) = 0</div>
+        </article>
+        <article class="explain-card">
+          <span class="step">03 / GEOMETRY</span>
+          <h3>Two important radii</h3>
+          <p>The event horizon is at r = 1 in our normalized units. The photon sphere is at r = 1.5, where circular photon orbits are possible. Scattering trajectories start outside it.</p>
+          <div class="mini-equation">rₛ = 1 &nbsp; · &nbsp; r<sub>ph</sub> = 3rₛ/2</div>
+        </article>
+      </section>
+      <footer>BLACK HOLE LAB <span>·</span> DOP853 numerical experiment <span>·</span> Normalized units: rₛ = 1</footer>
+    </main>
+  </div>
+</body>
+</html>
