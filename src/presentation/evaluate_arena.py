@@ -121,8 +121,8 @@ def run_arena(*, dataset_path, splits_path, mlp_path, ppo_path, pinn_path,
     output.mkdir(parents=True, exist_ok=True)
     data = load_dataset(dataset_path)
     case_ids = read_split_ids(splits_path, split)
-    if split != "test":
-        raise ValueError("The public Model Arena only exports the held-out test split")
+    if split not in {"validation", "test"}:
+        raise ValueError("split must be validation or test")
     rays = {cid: extract_ray(data, cid) for cid in case_ids}
 
     mlp, _ = load_dynamics_mlp(str(mlp_path), device=device)
@@ -241,6 +241,10 @@ def run_arena(*, dataset_path, splits_path, mlp_path, ppo_path, pinn_path,
         "live_training": False,
     }
     (output / "run_metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    (output / "summary.json").write_text(json.dumps({
+        "split": split, "test_case_ids": case_ids, "models": summary_rows,
+        "example_case_id": int(example_case),
+    }, indent=2) + "\n", encoding="utf-8")
     _plot_arena(prediction_rows, summary_rows, output, example_case)
     print(json.dumps({"output": str(output), "models": summary_rows}, indent=2))
     return summary_rows
@@ -257,11 +261,12 @@ def main():
     parser.add_argument("--output", default="outputs/presentation/model_arena")
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cpu")
     parser.add_argument("--example-case", type=int, default=None)
+    parser.add_argument("--split", choices=["validation", "test"], default="test")
     args = parser.parse_args()
     run_arena(dataset_path=args.dataset, splits_path=args.splits,
               mlp_path=args.mlp, ppo_path=args.ppo, pinn_path=args.pinn,
               adaptive_ppo_path=args.adaptive_ppo, output_dir=args.output,
-              device=args.device, example_case=args.example_case)
+              device=args.device, example_case=args.example_case, split=args.split)
 
 
 if __name__ == "__main__":
