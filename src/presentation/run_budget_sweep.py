@@ -48,6 +48,8 @@ def main():
                         choices=["MLP", "PINN", "PPO", "Adaptive RL"],
                         default=["MLP", "PINN", "PPO", "Adaptive RL"])
     args = parser.parse_args()
+    if not {"MLP", "PINN", "PPO"}.issubset(args.models):
+        parser.error("models must include MLP, PINN, and PPO; Adaptive RL is optional")
     if any(value <= 0 for value in args.budgets):
         parser.error("all budgets must be positive seconds")
     root = Path(args.output_root).resolve()
