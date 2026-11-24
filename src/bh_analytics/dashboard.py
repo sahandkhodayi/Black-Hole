@@ -103,6 +103,8 @@ def make_handler(outputs_root: Path, *, allow_training: bool = True):
                     "physics-explorer.js": "text/javascript; charset=utf-8",
                     "model-arena.css": "text/css; charset=utf-8",
                     "model-arena.js": "text/javascript; charset=utf-8",
+                    "observatory.css": "text/css; charset=utf-8",
+                    "observatory.js": "text/javascript; charset=utf-8",
                 }
                 if name not in allowed:
                     self._json(404, {"error": "Asset not found."})
