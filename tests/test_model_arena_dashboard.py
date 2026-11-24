@@ -39,3 +39,27 @@ def test_model_arena_routes_serve_saved_files_without_training(tmp_path):
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_observatory_home_and_assets_are_served_without_training(tmp_path):
+    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with urlopen(base + "/") as response:
+            page = response.read()
+            assert response.status == 200
+            assert b"PHOTON DYNAMICS OBSERVATORY" in page
+            assert b"LIVE TRAINING" not in page
+            assert b"Your experiments" not in page
+        with urlopen(base + "/assets/observatory.css") as response:
+            assert response.status == 200
+            assert b".space-scene" in response.read()
+        with urlopen(base + "/assets/observatory.js") as response:
+            assert response.status == 200
+            assert b"/api/physics/simulate" in response.read()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
