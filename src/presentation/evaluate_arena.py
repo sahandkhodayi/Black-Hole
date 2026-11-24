@@ -39,7 +39,16 @@ def _write_csv(path: Path, rows: list[dict]):
 
 def _metrics(ray, pred_u, pred_v):
     result = {"predicted_u": np.asarray(pred_u), "predicted_v": np.asarray(pred_v)}
-    return calculate_metrics(ray, result)
+    metrics = calculate_metrics(ray, result)
+    du = np.abs(result["predicted_u"] - ray.u)
+    dv = np.abs(result["predicted_v"] - ray.v)
+    metrics.update({
+        "max_abs_error_u": float(np.max(du)),
+        "max_abs_error_v": float(np.max(dv)),
+        "final_abs_error_u": float(du[-1]),
+        "final_abs_error_v": float(dv[-1]),
+    })
+    return metrics
 
 
 def _adaptive_rollout(model, env, case_id):
