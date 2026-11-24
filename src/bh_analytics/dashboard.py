@@ -52,7 +52,7 @@ def _simulate_photon_payload(closest_approach: object) -> dict:
     }
 
 
-def make_handler(outputs_root: Path, *, allow_training: bool = True):
+def make_handler(outputs_root: Path, *, allow_training: bool = False):
     root = outputs_root.resolve()
     training = TrainingManager(root)
 
@@ -287,14 +287,13 @@ def main() -> None:
         training_allowed = False
     server = ThreadingHTTPServer(
         (args.host, args.port),
-        make_handler(root, allow_training=training_allowed),
+        make_handler(root, allow_training=False),
     )
     server.daemon_threads = True
     url = f"http://{args.host}:{args.port}/"
     print(f"Black Hole Lab Analytics is running at {url}")
     print(f"Reading experiments from: {root}")
-    print("Browser training: enabled (localhost only)" if training_allowed
-          else "Browser training: disabled for non-localhost bindings")
+    print("Browser training: disabled (precomputed presentation mode)")
     print("Press Ctrl+C to stop the dashboard.")
     if not args.no_browser and args.host in {"127.0.0.1", "localhost"}:
         webbrowser.open(url)
