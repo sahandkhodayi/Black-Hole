@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import ipaddress
 import json
 import math
@@ -20,6 +21,7 @@ from bh_analytics.training import TrainingManager
 
 _TEMPLATE = Path(__file__).parent / "templates" / "dashboard.html"
 _PHYSICS_TEMPLATE = Path(__file__).parent / "templates" / "physics_explorer.html"
+_ARENA_TEMPLATE = Path(__file__).parent / "templates" / "model_arena.html"
 
 
 def _simulate_photon_payload(closest_approach: object) -> dict:
@@ -85,6 +87,12 @@ def make_handler(outputs_root: Path, *, allow_training: bool = True):
                 except OSError:
                     self._json(500, {"error": "Physics Explorer template is missing."})
                 return
+            if parsed.path == "/arena":
+                try:
+                    self._send(200, _ARENA_TEMPLATE.read_bytes(), "text/html; charset=utf-8")
+                except OSError:
+                    self._json(500, {"error": "Model Arena template is missing."})
+                return
             if parsed.path.startswith("/assets/"):
                 name = parsed.path.rsplit("/", 1)[-1]
                 allowed = {
@@ -93,6 +101,8 @@ def make_handler(outputs_root: Path, *, allow_training: bool = True):
                     "dashboard-ui.js": "text/javascript; charset=utf-8",
                     "physics-explorer.css": "text/css; charset=utf-8",
                     "physics-explorer.js": "text/javascript; charset=utf-8",
+                    "model-arena.css": "text/css; charset=utf-8",
+                    "model-arena.js": "text/javascript; charset=utf-8",
                 }
                 if name not in allowed:
                     self._json(404, {"error": "Asset not found."})
@@ -108,6 +118,40 @@ def make_handler(outputs_root: Path, *, allow_training: bool = True):
                     self._json(403, {"error": "Browser training is disabled when the server is exposed beyond this computer."})
                 else:
                     self._json(200, training.status())
+                return
+            if parsed.path == "/api/model-arena":
+                arena = (root / "presentation" / "model_arena").resolve()
+                try:
+                    arena.relative_to(root)
+                    summary_path = arena / "summary.json"
+                    predictions_path = arena / "predictions.csv"
+                    metrics_path = arena / "metrics_by_ray.csv"
+                    if not summary_path.is_file() or not predictions_path.is_file():
+                        raise FileNotFoundError("No saved Model Arena export. Run presentation.evaluate_arena before opening this page.")
+                    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+                    with predictions_path.open(newline="", encoding="utf-8") as handle:
+                        predictions = list(csv.DictReader(handle))
+                    metrics = []
+                    if metrics_path.is_file():
+                        with metrics_path.open(newline="", encoding="utf-8") as handle:
+                            metrics = list(csv.DictReader(handle))
+                    budget_path = arena / "budget_projection.csv"
+                    if not budget_path.is_file():
+                        budget_path = arena / "budget_measurements.csv"
+                    budgets = []
+                    if budget_path.is_file():
+                        with budget_path.open(newline="", encoding="utf-8") as handle:
+                            budgets = list(csv.DictReader(handle))
+                    file_names = ["predictions.csv", "metrics_by_ray.csv", "summary.csv", "summary.json", "run_metadata.json", "model_arena_overview.png"]
+                    files = [f"presentation/model_arena/{name}" for name in file_names if (arena / name).is_file()]
+                    if budget_path.is_file():
+                        files.append(f"presentation/model_arena/{budget_path.name}")
+                    self._json(200, {"summary": summary, "predictions": predictions,
+                                     "metrics": metrics, "budgets": budgets, "files": files})
+                except FileNotFoundError as exc:
+                    self._json(404, {"error": str(exc)})
+                except (ValueError, OSError, json.JSONDecodeError) as exc:
+                    self._json(500, {"error": f"Could not read Model Arena results: {exc}"})
                 return
             if parsed.path == "/api/experiments":
                 self._json(200, {"experiments": experiment_index(root)})
