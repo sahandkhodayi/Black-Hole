@@ -1,0 +1,103 @@
+{
+  "title": "Black Hole Lab — Training Budget Explorer",
+  "metric": "Mean normalized RMSE on five held-out test rays (lower is better)",
+  "budgets": [
+    {
+      "key": "1 min",
+      "seconds": 60,
+      "mlp": {
+        "value": 0.04115074891052926,
+        "status": "measured",
+        "actualSeconds": 68.1,
+        "source": "MLP held-out test summary"
+      },
+      "ppo": {
+        "value": 0.3007988936216651,
+        "status": "measured",
+        "actualSeconds": 60.5024424,
+        "source": "1-minute PPO per-ray test CSV; normalized RMSE recomputed from U_SCALE=0.5 and V_SCALE=0.2"
+      }
+    },
+    {
+      "key": "10 min",
+      "seconds": 600,
+      "mlp": {
+        "value": 0.04115074891052926,
+        "status": "projected",
+        "method": "plateau assumption after early stopping"
+      },
+      "ppo": {
+        "value": 0.2881804055545919,
+        "status": "measured",
+        "actualSeconds": 600.125,
+        "source": "10-minute PPO held-out test summary"
+      }
+    },
+    {
+      "key": "1 hour",
+      "seconds": 3600,
+      "mlp": {
+        "value": 0.04115074891052926,
+        "status": "projected",
+        "method": "plateau assumption after early stopping"
+      },
+      "ppo": {
+        "value": 0.27869683100697357,
+        "status": "projected",
+        "method": "power-law extrapolation from the 1-minute and 10-minute PPO points"
+      }
+    },
+    {
+      "key": "10 hours",
+      "seconds": 36000,
+      "mlp": {
+        "value": 0.04115074891052926,
+        "status": "projected",
+        "method": "plateau assumption after early stopping"
+      },
+      "ppo": {
+        "value": 0.26696497658069784,
+        "status": "projected",
+        "method": "power-law extrapolation from the 1-minute and 10-minute PPO points"
+      }
+    },
+    {
+      "key": "10 days",
+      "seconds": 864000,
+      "mlp": {
+        "value": 0.04115074891052926,
+        "status": "projected",
+        "method": "plateau assumption after early stopping"
+      },
+      "ppo": {
+        "value": 0.2515793910251705,
+        "status": "projected",
+        "method": "power-law extrapolation from the 1-minute and 10-minute PPO points"
+      }
+    }
+  ],
+  "caveats": [
+    "Only the 1-minute and 10-minute PPO points are measured. The 1-minute and 10-minute runs used different reward functions and PPO hyperparameters, so the fitted trend is a scenario, not a controlled learning curve.",
+    "The 1-minute MLP point is the existing 68.1-second MLP run, evaluated on the same five-ray test set. Its training log shows early stopping at epoch 160, with best validation rollout score at epoch 130. Longer MLP budgets are shown as a plateau assumption, not as additional training results.",
+    "The 1-hour, 10-hour and 10-day values are extrapolations only. They are not trained checkpoints, measured accuracy, or guarantees.",
+    "The test set contains five held-out rays. These results should be described as a small experiment, not broad evidence of generalization."
+  ],
+  "ppoPowerLaw": {
+    "slope": -0.018677740939323898,
+    "anchorSeconds": [
+      60.5024424,
+      600.125
+    ],
+    "anchorScores": [
+      0.3007988936216651,
+      0.2881804055545919
+    ]
+  },
+  "mlp": {
+    "actualTrainingSeconds": 68.1,
+    "bestEpoch": 130,
+    "stoppedAtEpoch": 160,
+    "testNormalizedRmse": 0.04115074891052926,
+    "validationBestNormalizedRmse": 0.00405923
+  }
+}
